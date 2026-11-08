@@ -13,7 +13,7 @@ import { Feedback, type Tone } from '../ui/Feedback';
 import { HelpButton } from '../ui/HelpButton';
 import { Screen } from '../ui/Screen';
 import { TopBar } from '../ui/TopBar';
-import { CurvedLink } from './Bars';
+import { CurvedLink, CurvedPointer } from './Bars';
 import { DndProvider, Draggable, DropZone } from './DragDrop';
 
 const key = (row: Row, col: Col) => `${row}-${col}`;
@@ -116,6 +116,7 @@ export function Phase2Game({ problem, stat, title, subtitle, withChoice, onBack,
         hintRow={hint1?.row ?? null}
         hintCol={hint1?.col ?? null}
         divisorGlow={hint1?.row === 'product'}
+        sumHint={choice.wrong.length >= 1 && !choice.done}
       />
     </View>
   );
@@ -200,7 +201,7 @@ export function Phase2Game({ problem, stat, title, subtitle, withChoice, onBack,
                 const w = [...choice.wrong, v];
                 setChoice({ ...choice, wrong: w });
                 setMsg({
-                  text: w.length === 1 ? 'اجمع أجزاء ناتج القسمة الموجودة أعلى المستطيل 👇' : 'اختر من بين الرقمين المضيئين 👇',
+                  text: w.length === 1 ? 'اجمع أجزاء ناتج القسمة: اتبع السهم الأحمر فوق المستطيل ➕' : 'اختر من بين الرقمين المضيئين 👇',
                   tone: 'hint',
                 });
               }
@@ -238,6 +239,7 @@ function AreaBoard({
   hintRow,
   hintCol,
   divisorGlow,
+  sumHint,
 }: {
   problem: AreaProblem;
   filled: Map<string, number>;
@@ -247,6 +249,8 @@ function AreaBoard({
   hintRow: Row | null;
   hintCol: Col | null;
   divisorGlow: boolean;
+  /** multiple-choice hint: arrow over the quotient parts with + signs between them */
+  sumHint?: boolean;
 }) {
   const cols: Col[] = [0, 1, 2];
   const rows: Row[] = ['partial', 'product', 'rest'];
@@ -256,17 +260,40 @@ function AreaBoard({
         <View style={styles.divCol} />
         {cols.map((c) => (
           <View key={c} style={styles.colHead}>
-            <Text style={[styles.placeName, hintRow === 'top' && hintCol === c && styles.placeNameHint]}>
-              {hintRow === 'top' && hintCol === c ? `👇 ${PLACE_NAMES[c]}` : PLACE_NAMES[c]}
-            </Text>
+            {hintRow === 'top' && hintCol === c ? (
+              <View style={styles.placeHintRow}>
+                <CurvedPointer />
+                <Text style={[styles.placeName, styles.placeNameHint]}>{PLACE_NAMES[c]}</Text>
+              </View>
+            ) : (
+              <Text style={styles.placeName}>{PLACE_NAMES[c]}</Text>
+            )}
           </View>
         ))}
       </View>
+      {sumHint ? (
+        <View style={styles.boardRow}>
+          <View style={styles.divCol} />
+          <View style={styles.sumArrow}>
+            <View style={styles.sumArrowLine} />
+            <View style={styles.sumArrowHead} />
+          </View>
+        </View>
+      ) : null}
       <View style={styles.boardRow}>
         <View style={styles.divCol} />
-        {cols.map((c) => (
-          <Cell key={c} id={key('top', c)} value={filled.get(key('top', c))} active={active} glowSlot={glowSlot} link={linkCells} top />
-        ))}
+        <View style={styles.topCells}>
+          {cols.map((c) => (
+            <Cell key={c} id={key('top', c)} value={filled.get(key('top', c))} active={active} glowSlot={glowSlot} link={linkCells} top />
+          ))}
+          {sumHint
+            ? ['33.33%', '66.66%'].map((left) => (
+                <View key={left} style={[styles.plus, { left }]} pointerEvents="none">
+                  <Text style={styles.plusText}>+</Text>
+                </View>
+              ))
+            : null}
+        </View>
       </View>
       <View style={styles.boardRow}>
         <View style={styles.divCol}>
@@ -354,7 +381,7 @@ function RowHint({ slot, problem, level }: { slot: AreaSlot; problem: AreaProble
   if (slot.row === 'top') {
     title = `هذه خانة ${PLACE_NAMES[col]}`;
     const example = col === 0 ? 'رقمًا بصفرين مثل 300' : col === 1 ? 'رقمًا بصفر واحد مثل 30' : 'رقمًا من خانة واحدة مثل 3';
-    body = <Text style={styles.hintBody}>السهم 👇 يشير إلى خانة {PLACE_NAMES[col]}، وهي تحتاج {example}.</Text>;
+    body = <Text style={styles.hintBody}>السهم الأصفر الملتوي يشير إلى خانة {PLACE_NAMES[col]}، وهي تحتاج {example}.</Text>;
   } else if (slot.row === 'partial') {
     title = 'انظر إلى الخانة المضيئة بالأصفر';
     body = <Text style={styles.hintBody}>الرقم المطلوب = نفس الرقم الباقي من الخانة السابقة (المضيء بالأصفر)</Text>;
@@ -439,6 +466,36 @@ const styles = StyleSheet.create({
   colHead: { flex: 1, alignItems: 'center' },
   placeName: { fontFamily: fonts.black, fontSize: 14, color: colors.inkSoft },
   placeNameHint: { color: colors.white, backgroundColor: colors.sunDeep, borderRadius: 8, paddingHorizontal: 6, overflow: 'hidden' },
+  placeHintRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, marginBottom: -6 },
+  topCells: { flex: 1, flexDirection: 'row', gap: 4 },
+  plus: {
+    position: 'absolute',
+    top: 9,
+    width: 26,
+    height: 26,
+    marginLeft: -13,
+    borderRadius: 13,
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.white,
+    zIndex: 5,
+  },
+  plusText: { fontFamily: fonts.black, color: colors.white, fontSize: 18, lineHeight: 22 },
+  sumArrow: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 20, paddingHorizontal: 6 },
+  sumArrowLine: { flex: 1, height: 6, backgroundColor: colors.coral, borderRadius: 3 },
+  sumArrowHead: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: colors.coral,
+    marginLeft: -2,
+  },
   divisor: {
     width: 44,
     height: 44,

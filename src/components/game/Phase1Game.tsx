@@ -172,7 +172,7 @@ function NumberPill({ value, glow }: { value: number; glow?: boolean }) {
   );
 }
 
-function Slot({ role, filled, glow }: { role: CardRole; filled?: boolean; glow?: boolean }) {
+function Slot({ role, filled }: { role: CardRole; filled?: boolean }) {
   return (
     <DropZone id={role} disabled={filled} style={styles.slotWrap}>
       {({ hovered, armed }) => (
@@ -182,7 +182,6 @@ function Slot({ role, filled, glow }: { role: CardRole; filled?: boolean; glow?:
             filled && styles.slotFilled,
             !filled && armed && styles.slotArmed,
             !filled && hovered && styles.slotHover,
-            !filled && glow && styles.slotGlow,
           ]}
         >
           <Text style={[styles.slotText, filled && { color: colors.white }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -211,7 +210,7 @@ function Board({
         <View style={styles.topRight}>
           <View style={styles.stack}>
             <NumberPill value={roleValue(problem, 'quotient')} glow={glow === 'quotient'} />
-            <Slot role="quotient" filled={placed.quotient} glow={glow === 'quotient'} />
+            <Slot role="quotient" filled={placed.quotient} />
           </View>
         </View>
       </View>
@@ -220,13 +219,13 @@ function Board({
         {/* divisor: outside, left */}
         <View style={[styles.leftCol, styles.stack]}>
           <NumberPill value={roleValue(problem, 'divisor')} glow={glow === 'divisor'} />
-          <Slot role="divisor" filled={placed.divisor} glow={glow === 'divisor'} />
+          <Slot role="divisor" filled={placed.divisor} />
         </View>
         {/* the rectangle */}
         <View style={styles.rect}>
           <View style={[styles.stack, { alignSelf: 'flex-start' }]}>
             <NumberPill value={roleValue(problem, 'dividend')} glow={glow === 'dividend'} />
-            <Slot role="dividend" filled={placed.dividend} glow={glow === 'dividend'} />
+            <Slot role="dividend" filled={placed.dividend} />
           </View>
           <View style={{ alignSelf: 'flex-end' }}>
             <NumberPill value={roleValue(problem, 'remainder')} glow={glow === 'remainder'} />
@@ -238,7 +237,7 @@ function Board({
       <View style={styles.rowBottom}>
         <View style={styles.leftCol} />
         <View style={styles.bottomRight}>
-          <Slot role="remainder" filled={placed.remainder} glow={glow === 'remainder'} />
+          <Slot role="remainder" filled={placed.remainder} />
         </View>
       </View>
     </View>
@@ -329,7 +328,6 @@ const styles = StyleSheet.create({
   },
   slotArmed: { borderColor: colors.grape, backgroundColor: colors.grapeSoft },
   slotHover: { borderStyle: 'solid', borderColor: colors.grapeDeep, backgroundColor: '#D9CCFF', transform: [{ scale: 1.06 }] },
-  slotGlow: { borderStyle: 'solid', borderColor: colors.mintDeep, backgroundColor: '#86EFAC' },
   slotFilled: { borderStyle: 'solid', borderColor: colors.mintDeep, backgroundColor: colors.mint },
   slotText: { fontFamily: fonts.bold, fontSize: 13, color: colors.inkSoft },
   feedback: { marginTop: 12 },

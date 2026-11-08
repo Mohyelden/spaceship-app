@@ -164,3 +164,14 @@ export function CurvedLink({
     </View>
   );
 }
+
+/** Yellow bent arrow (like the document's figure) that rises from the slot and points at the place name */
+export function CurvedPointer({ size = 30, color = colors.sunDeep }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size + 6} viewBox="0 0 30 36">
+      <Path d="M8 34 L8 16 Q8 8 16 8 L20 8" stroke={colors.ink} strokeWidth={7} fill="none" strokeLinecap="round" />
+      <Path d="M8 34 L8 16 Q8 8 16 8 L20 8" stroke={color} strokeWidth={4.5} fill="none" strokeLinecap="round" />
+      <Polygon points="19,1 29,8 19,15" fill={color} stroke={colors.ink} strokeWidth={1.5} />
+    </Svg>
+  );
+}
