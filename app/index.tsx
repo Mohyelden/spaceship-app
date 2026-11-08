@@ -11,10 +11,10 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeScreen } from '@/src/components/SafeScreen';
+import { ShipMark } from '@/src/components/ShipMark';
 import { APP_NAME } from '@/src/config/env';
 import { useGameStore } from '@/src/store/gameStore';
 import { useSessionStore } from '@/src/store/sessionStore';
@@ -25,44 +25,52 @@ export default function SplashScreen() {
   const studentCode = useGameStore((s) => s.studentCode);
   const markSplashSeen = useSessionStore((s) => s.markSplashSeen);
 
-  const zoom = useSharedValue(1.08);
-  const pulse = useSharedValue(0);
-  const titleY = useSharedValue(20);
+  const zoom = useSharedValue(1.1);
+  const shipY = useSharedValue(40);
+  const shipOp = useSharedValue(0);
+  const ring = useSharedValue(0);
+  const titleY = useSharedValue(28);
 
   useEffect(() => {
-    zoom.value = withTiming(1, { duration: 3800, easing: Easing.out(Easing.cubic) });
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1100 }),
-        withTiming(0.4, { duration: 1100 })
-      ),
-      -1,
-      false
+    zoom.value = withTiming(1, { duration: 3200, easing: Easing.out(Easing.cubic) });
+    shipOp.value = withTiming(1, { duration: 700 });
+    shipY.value = withTiming(0, { duration: 1100, easing: Easing.out(Easing.cubic) });
+    ring.value = withDelay(
+      500,
+      withRepeat(withTiming(1, { duration: 2200, easing: Easing.out(Easing.quad) }), -1, false)
     );
     titleY.value = withDelay(
-      350,
-      withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) })
+      450,
+      withTiming(0, { duration: 850, easing: Easing.out(Easing.cubic) })
     );
 
+    // Word: splash ~3 seconds then login
     const t = setTimeout(() => {
       markSplashSeen();
-      // Word doc: splash → login (or map if already logged in)
       if (studentCode) router.replace('/map');
       else router.replace('/login');
-    }, 4000);
+    }, 3200);
 
     return () => clearTimeout(t);
-  }, [router, studentCode, markSplashSeen, zoom, pulse, titleY]);
+  }, [router, studentCode, markSplashSeen, zoom, shipY, shipOp, ring, titleY]);
 
   const bgStyle = useAnimatedStyle(() => ({
     transform: [{ scale: zoom.value }],
   }));
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.2, 0.55]),
+  const shipStyle = useAnimatedStyle(() => ({
+    opacity: shipOp.value,
+    transform: [
+      { translateY: shipY.value },
+      { scale: interpolate(shipY.value, [40, 0], [0.75, 1]) },
+    ],
+  }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(ring.value, [0, 1], [0.65, 0]),
+    transform: [{ scale: interpolate(ring.value, [0, 1], [0.85, 1.75]) }],
   }));
   const titleStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: titleY.value }],
-    opacity: interpolate(titleY.value, [20, 0], [0, 1]),
+    opacity: interpolate(titleY.value, [28, 0], [0, 1]),
   }));
 
   return (
@@ -74,34 +82,49 @@ export default function SplashScreen() {
           resizeMode="cover"
         />
       </Animated.View>
-      {/* light vignette only at edges — keep art vivid */}
       <View style={styles.vignetteTop} pointerEvents="none" />
       <View style={styles.vignetteBottom} pointerEvents="none" />
 
       <SafeScreen style={styles.safe}>
         <View style={styles.center}>
-          <Animated.View style={[styles.glowOrb, glowStyle]} />
+          <View style={styles.shipWrap}>
+            <Animated.View style={[styles.ring, ringStyle]} />
+            <Animated.View style={[styles.ring, ringStyle, { width: 150, height: 150 }]} />
+            <Animated.View style={shipStyle}>
+              <ShipMark size={108} />
+            </Animated.View>
+          </View>
+
           <Animated.View style={titleStyle}>
             <Text style={styles.brand}>{APP_NAME}</Text>
           </Animated.View>
+
           <Animated.Text
-            entering={FadeInDown.delay(600).duration(600)}
+            entering={FadeInDown.delay(500).duration(550)}
             style={styles.english}
           >
             SPACE MISSION
           </Animated.Text>
+
           <Animated.View
-            entering={FadeIn.delay(900).duration(600)}
+            entering={FadeIn.delay(750).duration(500)}
             style={styles.rule}
           />
+
           <Animated.Text
-            entering={FadeInUp.delay(1100).duration(600)}
+            entering={FadeInUp.delay(900).duration(550)}
             style={styles.sub}
           >
-            مهمة إصلاح المحركات عبر القسمة المطولة
+            مغامرة إصلاح المحركات · القسمة المطولة
           </Animated.Text>
         </View>
-        <Text style={styles.loading}>التالي: تسجيل الدخول بكود الطالب</Text>
+
+        <Animated.Text
+          entering={FadeIn.delay(1400).duration(500)}
+          style={styles.loading}
+        >
+          الانتقال لتسجيل الدخول…
+        </Animated.Text>
       </SafeScreen>
     </View>
   );
@@ -116,39 +139,47 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 90,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    height: 70,
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   vignetteBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 110,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    height: 90,
+    backgroundColor: 'rgba(0,0,0,0.28)',
   },
   safe: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     gap: 8,
   },
-  glowOrb: {
+  shipWrap: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  ring: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,170,70,0.18)',
+    width: 120,
+    height: 120,
+    borderRadius: 99,
+    borderWidth: 2,
+    borderColor: '#FFC56E',
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 48,
-    lineHeight: 62,
+    fontSize: 44,
+    lineHeight: 58,
     color: '#FFF7E8',
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 3 },
     textShadowRadius: 10,
   },
@@ -159,11 +190,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   rule: {
-    width: 72,
+    width: 64,
     height: 3,
     borderRadius: 2,
     backgroundColor: '#FFC56E',
-    marginVertical: 4,
+    marginVertical: 2,
   },
   sub: {
     fontFamily: fonts.body,
@@ -172,7 +203,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
     maxWidth: 300,
-    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowRadius: 5,
   },
   loading: {
@@ -180,6 +211,6 @@ const styles = StyleSheet.create({
     color: '#FFD089',
     fontSize: 12,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
 });

@@ -23,27 +23,26 @@ export default function MapScreen() {
 
   return (
     <SpaceBackground>
-      <SafeScreen bottomExtra={12}>
+      <SafeScreen bottomExtra={16}>
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
+          bounces
         >
-          <Animated.View entering={FadeInDown.duration(450)} style={styles.header}>
-            <Text style={styles.kicker}>مجرّة سفينة الفضاء</Text>
-            <Text style={styles.title}>اختر كوكب المهمة</Text>
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+            <Text style={styles.kicker}>خريطة المستويات · حسب الوثيقة</Text>
+            <Text style={styles.title}>اختر المستوى</Text>
             <Text style={styles.pilot}>القائد · {studentCode || '—'}</Text>
-            <View style={styles.progressBox}>
-              <ProgressBar fraction={progressFraction()} stars={stars} />
-              <Text style={styles.xp}>{xp} XP</Text>
-            </View>
+            <ProgressBar fraction={progressFraction()} stars={stars} />
+            <Text style={styles.xp}>{xp} XP</Text>
           </Animated.View>
 
           <GalaxyMap
             levels={[
               {
                 id: 'prep',
-                title: 'كوكب المستطيل',
-                subtitle: 'المستوى التمهيدي',
+                title: 'المستوى التمهيدي',
+                subtitle: 'نموذج مساحة المستطيل',
                 skin: 'ember',
                 open: unlocked.prep,
                 done: completed.prep,
@@ -52,8 +51,8 @@ export default function MapScreen() {
               },
               {
                 id: 'level1',
-                title: 'كوكب الرقم الواحد',
-                subtitle: 'قسمة مطولة',
+                title: 'المستوى الأول',
+                subtitle: 'القسمة المطولة على رقم واحد',
                 skin: 'ocean',
                 open: unlocked.level1,
                 done: completed.level1,
@@ -62,8 +61,8 @@ export default function MapScreen() {
               },
               {
                 id: 'level2',
-                title: 'كوكب الرقمين',
-                subtitle: 'التحدي الأخير',
+                title: 'المستوى الثاني',
+                subtitle: 'القسمة المطولة على رقمين',
                 skin: 'ringed',
                 open: unlocked.level2,
                 done: completed.level2,
@@ -74,27 +73,30 @@ export default function MapScreen() {
           />
 
           <View style={styles.footer}>
+            <Text style={styles.hint}>
+              القفل التالي يُفتح بعد إتمام المستوى الحالي والحصول على النجوم
+            </Text>
             {completed.level2 ? (
               <PrimaryButton
                 title="تدشين السفينة"
                 variant="success"
                 onPress={() => router.push('/finale')}
               />
-            ) : (
-              <Text style={styles.hint}>
-                افتح الكواكب بالترتيب بعد فيديو كل مستوى
-              </Text>
-            )}
-            <PrimaryButton
-              title="إعادة فيديو القصة"
-              variant="ghost"
-              onPress={() => router.push('/intro-video')}
-            />
-            <PrimaryButton
-              title="تغيير كود الطالب"
-              variant="secondary"
-              onPress={() => router.push('/login')}
-            />
+            ) : null}
+            <View style={styles.footerRow}>
+              <PrimaryButton
+                title="فيديو القصة"
+                variant="ghost"
+                onPress={() => router.push('/intro-video')}
+                style={{ flex: 1 }}
+              />
+              <PrimaryButton
+                title="تغيير الكود"
+                variant="secondary"
+                onPress={() => router.push('/login')}
+                style={{ flex: 1 }}
+              />
+            </View>
           </View>
         </ScrollView>
       </SafeScreen>
@@ -104,26 +106,33 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 16,
-    gap: 10,
+    paddingBottom: 28,
+    gap: 14,
   },
-  header: { alignItems: 'center', gap: 6, paddingHorizontal: 14 },
+  header: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+  },
   kicker: { ...type.caption, color: colors.copperBright },
   title: { ...type.title, color: colors.parchment, fontSize: 24 },
   pilot: { ...type.subtitle, color: colors.mist },
-  progressBox: { width: '100%', marginTop: 4, gap: 4, paddingHorizontal: 4 },
   xp: {
     fontFamily: fonts.bodyBold,
     color: colors.copperBright,
-    textAlign: 'center',
     fontSize: 12,
   },
-  footer: { paddingHorizontal: 14, gap: 10, marginTop: 4 },
+  footer: {
+    paddingHorizontal: 16,
+    gap: 10,
+    marginTop: 8,
+  },
+  footerRow: { flexDirection: 'row', gap: 8 },
   hint: {
     fontFamily: fonts.body,
     color: colors.mist,
     textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
