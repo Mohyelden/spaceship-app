@@ -141,7 +141,7 @@ export function CabinGame({
   ) : null;
 
   const hintPanel =
-    pos && level > 0 ? <HintPanel problem={p} pos={pos} level={level} width={Math.min(width, wide ? 520 : 560) - 64} /> : null;
+    pos && level > 0 && pos.s !== 'bringDown' ? <HintPanel problem={p} pos={pos} level={level} width={Math.min(width, wide ? 520 : 560) - 64} /> : null;
 
   const pad = pos ? <NumberPad value={input} onChange={setInput} onSubmit={submit} maxLength={4} /> : null;
 
@@ -549,7 +549,7 @@ function HintPanel({ problem: p, pos, level, width }: { problem: DivisionProblem
                 arrow: true,
                 segs: [
                   { len: cy.product, color: colors.mint },
-                  ...(cy.remainder > 0 ? [{ len: cy.remainder, color: colors.peach, label: 'الباقي' }] : []),
+                  ...(cy.remainder > 0 ? [{ len: cy.remainder, color: colors.peach }] : []),
                 ],
               },
               { label: String(cy.product), arrow: true, segs: [{ len: cy.product, color: colors.mint }] },
