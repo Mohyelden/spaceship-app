@@ -1,19 +1,38 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CabinDivision } from '@/src/components/CabinDivision';
-import { LEVEL2_MAIN, LEVEL2_RETRY } from '@/src/data/problems/division';
+import { useMemo } from 'react';
+import { CabinGame } from '@/src/components/game/CabinGame';
+import { useRequireLogin } from '@/src/components/useGuard';
+import { LEVEL2_MAIN, LEVEL2_RETRIES, randomLevel2 } from '@/src/data/problems/division';
+import { useGameStore } from '@/src/store/gameStore';
 
-export default function Level2CabinScreen() {
+/** Level 2 · long division by two digits (782 ÷ 23); new problem after a shown solution */
+export default function Level2Cabin() {
+  const ok = useRequireLogin();
   const router = useRouter();
-  const params = useLocalSearchParams<{ retry?: string }>();
-  const problem = params.retry === '1' ? LEVEL2_RETRY : LEVEL2_MAIN;
+  const completeLevel = useGameStore((s) => s.completeLevel);
+  const { n } = useLocalSearchParams<{ n?: string }>();
+  const attempt = Number(n ?? 0);
+  const problem = useMemo(
+    () => (attempt === 0 ? LEVEL2_MAIN : LEVEL2_RETRIES[attempt - 1] ?? randomLevel2([782])),
+    [attempt]
+  );
+  if (!ok) return null;
 
   return (
-    <CabinDivision
+    <CabinGame
+      key={attempt}
       problem={problem}
-      onSuccess={() => router.replace('/finale')}
-      onRetryWithNew={() =>
-        router.replace({ pathname: '/level2/cabin', params: { retry: '1' } })
-      }
+      stat="level2"
+      twoDigit
+      title="كابينة القيادة"
+      subtitle="المستوى الثاني"
+      onBack={() => router.replace('/map')}
+      onRetry={() => router.replace({ pathname: '/level2/cabin', params: { n: String(attempt + 1) } })}
+      successButton="أطلق السفينة 🚀"
+      onSuccess={async () => {
+        await completeLevel('level2');
+        router.replace('/finale');
+      }}
     />
   );
 }

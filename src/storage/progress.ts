@@ -1,43 +1,90 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_HINT_MODE, type HintMode } from '@/src/config/env';
 
 export type LevelId = 'prep' | 'level1' | 'level2';
+export type VideoId = 'intro' | 'prep' | 'level1' | 'level2' | 'finale';
+export type StatKey = LevelId | 'bank';
 
-export type ProgressState = {
-  studentCode: string | null;
-  stars: number;
-  unlocked: Record<LevelId, boolean>;
-  completed: Record<LevelId, boolean>;
-  videosSeen: Record<string, boolean>;
-  xp: number;
-  badges: string[];
+export type Stats = {
+  correct: number;
+  errors: number;
+  hintsShown: number;
+  helpPresses: number;
+  solutionsShown: number;
 };
 
-const KEY = 'spaceship_progress_v1';
+export type StudentProgress = {
+  code: string;
+  createdAt: number;
+  lastLoginAt: number;
+  logins: number;
+  completed: Record<LevelId, boolean>;
+  videosSeen: Partial<Record<VideoId, boolean>>;
+  xp: number;
+  badges: string[];
+  stats: Record<StatKey, Stats>;
+};
 
-export const defaultProgress = (): ProgressState => ({
-  studentCode: null,
-  stars: 0,
-  unlocked: { prep: true, level1: false, level2: false },
-  completed: { prep: false, level1: false, level2: false },
-  videosSeen: {},
-  xp: 0,
-  badges: [],
+export type SaveData = {
+  version: 2;
+  hintMode: HintMode;
+  lastCode: string | null;
+  students: Record<string, StudentProgress>;
+};
+
+const KEY = 'spaceship_save_v2';
+
+export const emptyStats = (): Stats => ({
+  correct: 0,
+  errors: 0,
+  hintsShown: 0,
+  helpPresses: 0,
+  solutionsShown: 0,
 });
 
-export async function loadProgress(): Promise<ProgressState> {
+export function newStudent(code: string): StudentProgress {
+  const now = Date.now();
+  return {
+    code,
+    createdAt: now,
+    lastLoginAt: now,
+    logins: 0,
+    completed: { prep: false, level1: false, level2: false },
+    videosSeen: {},
+    xp: 0,
+    badges: [],
+    stats: {
+      prep: emptyStats(),
+      level1: emptyStats(),
+      level2: emptyStats(),
+      bank: emptyStats(),
+    },
+  };
+}
+
+export const defaultSave = (): SaveData => ({
+  version: 2,
+  hintMode: DEFAULT_HINT_MODE,
+  lastCode: null,
+  students: {},
+});
+
+export async function loadSave(): Promise<SaveData> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return defaultProgress();
-    return { ...defaultProgress(), ...JSON.parse(raw) };
+    if (!raw) return defaultSave();
+    const parsed = JSON.parse(raw) as SaveData;
+    if (parsed?.version !== 2) return defaultSave();
+    return { ...defaultSave(), ...parsed };
   } catch {
-    return defaultProgress();
+    return defaultSave();
   }
 }
 
-export async function saveProgress(state: ProgressState): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(state));
-}
-
-export async function clearProgress(): Promise<void> {
-  await AsyncStorage.removeItem(KEY);
+export async function writeSave(data: SaveData): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    // storage full / unavailable: keep playing in memory
+  }
 }

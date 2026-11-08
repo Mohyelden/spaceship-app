@@ -1,62 +1,29 @@
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { PrimaryButton } from '@/src/components/PrimaryButton';
-import { ProgressBar } from '@/src/components/ProgressBar';
-import { SpaceBackground } from '@/src/components/SpaceBackground';
-import { useGameStore } from '@/src/store/gameStore';
-import { colors } from '@/src/theme/colors';
+import { Celebration } from '@/src/components/Celebration';
+import { Button } from '@/src/components/ui/Button';
+import { useRequireLogin } from '@/src/components/useGuard';
+import { playSound } from '@/src/sound/sounds';
+import { starsOf, useStudent } from '@/src/store/gameStore';
 
-export default function PrepCompleteScreen() {
+export default function PrepComplete() {
+  const ok = useRequireLogin();
   const router = useRouter();
-  const completeLevel = useGameStore((s) => s.completeLevel);
-  const stars = useGameStore((s) => s.stars);
-  const progressFraction = useGameStore((s) => s.progressFraction);
-
-  useEffect(() => {
-    completeLevel('prep');
-  }, [completeLevel]);
+  const student = useStudent();
+  useEffect(() => playSound('win'), []);
+  if (!ok || !student) return null;
 
   return (
-    <SpaceBackground>
-      <View style={styles.container}>
-        <Text style={styles.emoji}>⭐</Text>
-        <Text style={styles.title}>أحسنت! أتممت المستوى التمهيدي</Text>
-        <Text style={styles.sub}>المحرك الأول يعمل — ثلث الطريق!</Text>
-        <ProgressBar fraction={Math.max(progressFraction(), 1 / 3)} stars={Math.max(stars, 1)} />
-        <PrimaryButton
-          title="انتقل للمستوى الأول"
-          variant="success"
-          onPress={() => router.replace('/level1/video')}
-        />
-        <PrimaryButton
-          title="بنك المسائل"
-          variant="secondary"
-          onPress={() => router.push('/bank/prep')}
-        />
-        <PrimaryButton
-          title="الخريطة"
-          variant="secondary"
-          onPress={() => router.replace('/map')}
-        />
-      </View>
-    </SpaceBackground>
+    <Celebration
+      stars={starsOf(student)}
+      bigStars={1}
+      title="أتممت المستوى التمهيدي!"
+      message="رائع يا قائد! أصلحت المحرك الأول وحصلت على النجمة الأولى ⭐ وامتلأ ثلث شريط التقدم."
+    >
+      <Button title="انتقل للمستوى الأول: القسمة على رقم واحد" icon="🚀" variant="success" onPress={() => router.replace('/level1/video')} />
+      <Button title="بنك المسائل للتدريب الحر" icon="🏦" variant="secondary" size="md" onPress={() => router.replace('/bank/prep')} />
+      <Button title="كرر المغامرة" icon="🔁" variant="secondary" size="md" onPress={() => router.replace('/prep/phase1')} />
+      <Button title="خريطة المستويات" icon="🗺️" variant="secondary" size="md" onPress={() => router.replace('/map')} />
+    </Celebration>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 14,
-  },
-  emoji: { fontSize: 64, textAlign: 'center' },
-  title: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  sub: { color: colors.cyan, textAlign: 'center', marginBottom: 8 },
-});

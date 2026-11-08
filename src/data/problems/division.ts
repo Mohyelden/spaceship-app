@@ -1,16 +1,18 @@
-export type CabinStep = 'divide' | 'multiply' | 'subtract' | 'bringDown';
+/** Long division (levels 1 & 2): divide → multiply → subtract → bring down */
 
-export type DivisionCycle = {
-  /** Current working number for divide step */
+export type CabinStep = 'start' | 'divide' | 'multiply' | 'subtract' | 'bringDown';
+
+export type Cycle = {
+  /** number being divided in this cycle (e.g. 6, 12, 25) */
   working: number;
-  divisor: number;
-  /** Correct quotient digit for this cycle */
+  /** index (in dividend digits) of the last digit included in `working` */
+  endIdx: number;
   digit: number;
   product: number;
   remainder: number;
-  /** Digit brought down (null if last cycle) */
-  bringDownDigit: number | null;
-  /** After bring-down, next working number */
+  /** index of the digit brought down after this cycle, null for last cycle */
+  bringIdx: number | null;
+  bringDigit: number | null;
   nextWorking: number | null;
 };
 
@@ -18,98 +20,98 @@ export type DivisionProblem = {
   id: string;
   dividend: number;
   divisor: number;
+  digits: number[];
   quotient: number;
-  cycles: DivisionCycle[];
-  /** How many digits to take at start (1 or 2) */
-  startDigits: number;
+  remainder: number;
+  cycles: Cycle[];
 };
 
-function buildCycles(dividend: number, divisor: number): DivisionCycle[] {
+export function makeDivision(dividend: number, divisor: number, id = `${dividend}÷${divisor}`): DivisionProblem {
   const digits = String(dividend).split('').map(Number);
-  const cycles: DivisionCycle[] = [];
-  let index = 0;
-  let working = 0;
-
-  // Take enough leading digits
-  while (index < digits.length && working < divisor) {
-    working = working * 10 + digits[index];
-    index += 1;
+  const cycles: Cycle[] = [];
+  let idx = 0;
+  let working = digits[0];
+  while (working < divisor && idx < digits.length - 1) {
+    idx += 1;
+    working = working * 10 + digits[idx];
   }
-
-  while (true) {
+  for (;;) {
     const digit = Math.floor(working / divisor);
     const product = digit * divisor;
     const remainder = working - product;
-    const bringDownDigit = index < digits.length ? digits[index] : null;
-    let nextWorking: number | null = null;
-
-    if (bringDownDigit !== null) {
-      nextWorking = remainder * 10 + bringDownDigit;
-      index += 1;
-    }
-
-    cycles.push({
-      working,
-      divisor,
-      digit,
-      product,
-      remainder,
-      bringDownDigit,
-      nextWorking,
-    });
-
-    if (bringDownDigit === null) break;
+    const bringIdx = idx + 1 < digits.length ? idx + 1 : null;
+    const bringDigit = bringIdx === null ? null : digits[bringIdx];
+    const nextWorking = bringDigit === null ? null : remainder * 10 + bringDigit;
+    cycles.push({ working, endIdx: idx, digit, product, remainder, bringIdx, bringDigit, nextWorking });
+    if (bringIdx === null) break;
+    idx = bringIdx;
     working = nextWorking!;
   }
-
-  return cycles;
+  return {
+    id,
+    dividend,
+    divisor,
+    digits,
+    quotient: Math.floor(dividend / divisor),
+    remainder: dividend % divisor,
+    cycles,
+  };
 }
 
-export function makeDivisionProblem(
-  id: string,
-  dividend: number,
-  divisor: number
-): DivisionProblem {
-  const cycles = buildCycles(dividend, divisor);
-  const quotient = Math.floor(dividend / divisor);
-  const startDigits = String(cycles[0]?.working ?? dividend).length;
+/** Index of the digits the child must pick to start ("78" for 782 ÷ 23) */
+export const startNumber = (p: DivisionProblem) => p.cycles[0].working;
 
-  return { id, dividend, divisor, quotient, cycles, startDigits };
+const rand = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
+
+/** "Nice" problems: no zero quotient digits, exact (remainder 0), 3-digit dividend */
+function isNice(p: DivisionProblem) {
+  return p.remainder === 0 && p.cycles.every((c) => c.digit > 0) && p.dividend < 1000;
 }
 
-export const LEVEL1_MAIN = makeDivisionProblem('l1-625-5', 625, 5);
-export const LEVEL1_RETRY = makeDivisionProblem('l1-748-4', 748, 4);
+export function randomLevel1(exclude: number[] = []): DivisionProblem {
+  for (let i = 0; i < 500; i++) {
+    const d = rand(2, 9);
+    const q = rand(100, 999);
+    const p = makeDivision(q * d, d);
+    if (isNice(p) && p.cycles.length === 3 && !exclude.includes(p.dividend)) return p;
+  }
+  return makeDivision(936, 4);
+}
 
-export const LEVEL2_MAIN = makeDivisionProblem('l2-782-23', 782, 23);
-export const LEVEL2_RETRY = makeDivisionProblem('l2-946-22', 946, 22);
+export function randomLevel2(exclude: number[] = []): DivisionProblem {
+  for (let i = 0; i < 500; i++) {
+    const d = rand(11, 39);
+    const q = rand(12, 49);
+    const p = makeDivision(q * d, d);
+    if (isNice(p) && p.cycles.length === 2 && !exclude.includes(p.dividend)) return p;
+  }
+  return makeDivision(946, 22);
+}
 
-export const LEVEL1_BANK = [
-  LEVEL1_MAIN,
-  LEVEL1_RETRY,
-  makeDivisionProblem('bank-l1-486-3', 486, 3),
-  makeDivisionProblem('bank-l1-864-4', 864, 4),
-  makeDivisionProblem('bank-l1-945-5', 945, 5),
-  makeDivisionProblem('bank-l1-728-4', 728, 4),
-];
+/* Document problems */
+export const LEVEL1_MAIN = makeDivision(625, 5);
+export const LEVEL1_RETRIES = [makeDivision(936, 4), makeDivision(852, 6), makeDivision(975, 5)];
+export const LEVEL2_MAIN = makeDivision(782, 23);
+export const LEVEL2_RETRIES = [makeDivision(946, 22), makeDivision(851, 37), makeDivision(988, 26)];
 
+export const LEVEL1_BANK = [486, 3, 848, 4, 735, 5, 972, 6, 868, 7, 744, 8].reduce<DivisionProblem[]>(
+  (acc, n, i, arr) => (i % 2 === 0 ? [...acc, makeDivision(n, arr[i + 1])] : acc),
+  []
+);
 export const LEVEL2_BANK = [
-  LEVEL2_MAIN,
-  LEVEL2_RETRY,
-  makeDivisionProblem('bank-l2-858-26', 858, 26),
-  makeDivisionProblem('bank-l2-966-23', 966, 23),
-  makeDivisionProblem('bank-l2-875-25', 875, 25),
+  makeDivision(946, 22),
+  makeDivision(851, 37),
+  makeDivision(858, 26),
+  makeDivision(966, 23),
+  makeDivision(875, 25),
+  makeDivision(672, 16),
 ];
 
-export const STEP_LABELS: Record<CabinStep, string> = {
-  divide: 'اقسم',
-  multiply: 'اضرب',
-  subtract: 'اطرح',
-  bringDown: 'نزل',
+export const STEP_INFO: Record<Exclude<CabinStep, 'start'>, { label: string; icon: string }> = {
+  divide: { label: 'اقسم', icon: '➗' },
+  multiply: { label: 'اضرب', icon: '✖️' },
+  subtract: { label: 'اطرح', icon: '➖' },
+  bringDown: { label: 'نزّل', icon: '⬇️' },
 };
 
-export const STEP_ORDER: CabinStep[] = [
-  'divide',
-  'multiply',
-  'subtract',
-  'bringDown',
-];
+export const SCREENS: Exclude<CabinStep, 'start'>[] = ['divide', 'multiply', 'subtract', 'bringDown'];

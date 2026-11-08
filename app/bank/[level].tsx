@@ -1,179 +1,216 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { CabinDivision } from '@/src/components/CabinDivision';
-import { PrimaryButton } from '@/src/components/PrimaryButton';
-import { SpaceBackground } from '@/src/components/SpaceBackground';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CabinGame } from '@/src/components/game/CabinGame';
+import { Phase1Game } from '@/src/components/game/Phase1Game';
+import { Phase2Game } from '@/src/components/game/Phase2Game';
+import { Button } from '@/src/components/ui/Button';
+import { Feedback } from '@/src/components/ui/Feedback';
+import { Screen } from '@/src/components/ui/Screen';
+import { TopBar } from '@/src/components/ui/TopBar';
+import { useRequireLogin } from '@/src/components/useGuard';
 import {
   LEVEL1_BANK,
   LEVEL2_BANK,
+  randomLevel1,
+  randomLevel2,
   type DivisionProblem,
 } from '@/src/data/problems/division';
 import {
+  makeArea,
   PREP_BANK,
-  ROLE_LABELS,
-  roleValue,
-  type CardRole,
-  type PrepPhase1Problem,
+  randomArea,
+  randomPhase1,
+  type AreaProblem,
+  type Phase1Problem,
 } from '@/src/data/problems/prep';
-import { useGameStore } from '@/src/store/gameStore';
-import { colors } from '@/src/theme/colors';
+import type { LevelId } from '@/src/storage/progress';
+import { isUnlocked, useGameStore, useStudent } from '@/src/store/gameStore';
+import { colors, radii } from '@/src/theme/colors';
+import { fonts } from '@/src/theme/typography';
 
-export default function BankScreen() {
-  const { level } = useLocalSearchParams<{ level: string }>();
-  const router = useRouter();
-  const addXp = useGameStore((s) => s.addXp);
-  const [index, setIndex] = useState(0);
-  const [mode, setMode] = useState<'menu' | 'play'>('menu');
+type Item =
+  | { kind: 'cards'; p: Phase1Problem }
+  | { kind: 'area'; p: AreaProblem }
+  | { kind: 'div'; p: DivisionProblem; two: boolean };
 
-  const prepList = PREP_BANK;
-  const divList: DivisionProblem[] =
-    level === 'level2' ? LEVEL2_BANK : LEVEL1_BANK;
+const LEVEL_TITLES: Record<LevelId, string> = {
+  prep: 'بنك مسائل المستوى التمهيدي',
+  level1: 'بنك مسائل القسمة على رقم',
+  level2: 'بنك مسائل القسمة على رقمين',
+};
 
-  if (mode === 'play' && (level === 'level1' || level === 'level2')) {
-    const problem = divList[index % divList.length];
-    return (
-      <CabinDivision
-        problem={problem}
-        practiceMode
-        onSuccess={async () => {
-          await addXp(15, 'وسام التدريب');
-          setMode('menu');
-        }}
-        onRetryWithNew={() => setIndex((i) => i + 1)}
-      />
-    );
-  }
+const BADGE = 'وسام بطل الرياضيات الذهبي 🏅';
+const DIFF = ['سهل', 'سهل', 'متوسط', 'متوسط', 'صعب', 'صعب'];
 
-  if (mode === 'play' && level === 'prep') {
-    return (
-      <PrepBankRound
-        problem={prepList[index % prepList.length]}
-        onDone={async () => {
-          await addXp(10, 'وسام التدريب');
-          setMode('menu');
-        }}
-        onNext={() => setIndex((i) => i + 1)}
-      />
-    );
-  }
-
-  const title =
-    level === 'prep'
-      ? 'بنك المستوى التمهيدي'
-      : level === 'level2'
-        ? 'بنك القسمة على رقمين'
-        : 'بنك القسمة على رقم واحد';
-
-  return (
-    <SpaceBackground>
-      <View style={styles.container}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.sub}>
-          تدريب حر — لا يخصم من النجوم. الأخطاء تساعدك بالتلميحات فقط.
-        </Text>
-        <PrimaryButton
-          title="مسألة جديدة 🎲"
-          onPress={() => {
-            setIndex((i) => i + 1);
-            setMode('play');
-          }}
-        />
-        <PrimaryButton
-          title="ابدأ المسألة الحالية"
-          variant="success"
-          onPress={() => setMode('play')}
-        />
-        <PrimaryButton
-          title="رجوع للخريطة"
-          variant="secondary"
-          onPress={() => router.replace('/map')}
-        />
-      </View>
-    </SpaceBackground>
-  );
+function listFor(level: LevelId): Item[] {
+  if (level === 'prep')
+    return [
+      ...PREP_BANK.slice(0, 3).map((p) => ({ kind: 'cards' as const, p })),
+      ...[
+        [848, 4],
+        [756, 3],
+        [936, 4],
+        [985, 5],
+      ].map(([a, b]) => ({ kind: 'area' as const, p: makeArea(a, b) })),
+    ];
+  const src = level === 'level1' ? LEVEL1_BANK : LEVEL2_BANK;
+  return [...src].sort((a, b) => a.dividend / a.divisor - b.dividend / b.divisor).map((p) => ({ kind: 'div' as const, p, two: level === 'level2' }));
 }
 
-function PrepBankRound({
-  problem,
-  onDone,
-  onNext,
-}: {
-  problem: PrepPhase1Problem;
-  onDone: () => void;
-  onNext: () => void;
-}) {
-  const roles = useMemo(() => {
-    const r: CardRole[] = ['dividend', 'divisor', 'quotient', 'remainder'];
-    return r.sort(() => Math.random() - 0.5);
-  }, [problem]);
-  const [left, setLeft] = useState(roles);
-  const [slot, setSlot] = useState<CardRole | null>(null);
+function randomFor(level: LevelId, kind?: Item['kind']): Item {
+  if (level === 'prep') return kind === 'cards' ? { kind: 'cards', p: randomPhase1() } : { kind: 'area', p: randomArea() };
+  return level === 'level1' ? { kind: 'div', p: randomLevel1(), two: false } : { kind: 'div', p: randomLevel2(), two: true };
+}
 
-  const target = left[0];
+const label = (it: Item) => `${it.p.dividend} ÷ ${it.p.divisor}`;
+
+export default function Bank() {
+  const ok = useRequireLogin();
+  const router = useRouter();
+  const student = useStudent();
+  const addXp = useGameStore((s) => s.addXp);
+  const { level: raw } = useLocalSearchParams<{ level: string }>();
+  const level: LevelId = raw === 'level1' || raw === 'level2' ? raw : 'prep';
+  const [playing, setPlaying] = useState<{ item: Item; key: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [round, setRound] = useState(0);
+
+  const locked = !!student && !isUnlocked(student, level);
+  useEffect(() => {
+    if (locked) router.replace('/map');
+  }, [locked, router]);
+
+  if (!ok || !student || locked) return null;
+
+  const start = (item: Item) => {
+    setRound((r) => r + 1);
+    setPlaying({ item, key: round + 1 });
+  };
+  const back = () => setPlaying(null);
+  const win = async () => {
+    const gain = 15;
+    const earnBadge = student.xp + gain >= 100 && !student.badges.includes(BADGE);
+    await addXp(gain, earnBadge ? BADGE : undefined);
+    setToast(earnBadge ? `مبروك! حصلت على ${BADGE} و +${gain} XP` : `أحسنت! +${gain} نقطة خبرة ⚡`);
+    setPlaying(null);
+  };
+  const another = () => playing && start(randomFor(level, playing.item.kind));
+
+  if (playing) {
+    const { item, key } = playing;
+    const common = { stat: 'bank' as const, onBack: back };
+    if (item.kind === 'cards')
+      return (
+        <Phase1Game
+          key={key}
+          {...common}
+          problem={item.p}
+          title="بنك المسائل"
+          subtitle="تدريب حر: بطاقات المستطيل"
+          onSuccess={win}
+          onRetry={another}
+          successText="أحسنت! حللت مسألة التدريب 🎉"
+          successButton="استلم نقاط الخبرة ⚡"
+          retryButton="مسألة جديدة 🎲"
+        />
+      );
+    if (item.kind === 'area')
+      return (
+        <Phase2Game
+          key={key}
+          {...common}
+          problem={item.p}
+          title="بنك المسائل"
+          subtitle="تدريب حر: نموذج المستطيل"
+          withChoice={false}
+          onSuccess={win}
+          onRetry={another}
+          successButton="استلم نقاط الخبرة ⚡"
+        />
+      );
+    return (
+      <CabinGame
+        key={key}
+        {...common}
+        problem={item.p}
+        twoDigit={item.two}
+        title="بنك المسائل"
+        subtitle={`تدريب حر: ${label(item)}`}
+        onSuccess={win}
+        onRetry={another}
+        successButton="استلم نقاط الخبرة ⚡"
+        retryButton="مسألة جديدة 🎲"
+      />
+    );
+  }
+
+  const items = listFor(level);
 
   return (
-    <SpaceBackground>
-      <View style={styles.container}>
-        <Text style={styles.title}>تدريب المفاهيم</Text>
-        <Text style={styles.problem}>
-          {problem.dividend} ÷ {problem.divisor}
-        </Text>
-        <Text style={styles.sub}>
-          أين توضع بطاقة «{target ? ROLE_LABELS[target] : ''}»؟
-        </Text>
-        <View style={styles.row}>
-          {roles.map((role) => (
-            <PrimaryButton
-              key={role}
-              title={ROLE_LABELS[role]}
-              variant={slot === role ? 'success' : 'secondary'}
-              onPress={() => {
-                if (role === target) {
-                  const next = left.slice(1);
-                  setLeft(next);
-                  setSlot(null);
-                  if (next.length === 0) onDone();
-                } else {
-                  setSlot(role);
-                }
-              }}
-              style={{ minWidth: 140 }}
-            />
-          ))}
-        </View>
-        {target ? (
-          <Text style={styles.hint}>
-            القيمة: {roleValue(problem, target)}
-          </Text>
-        ) : null}
-        <PrimaryButton title="مسألة أخرى" variant="secondary" onPress={onNext} />
-        <PrimaryButton title="إنهاء" onPress={onDone} />
+    <Screen
+      scroll
+      header={<TopBar title={LEVEL_TITLES[level]} subtitle="تدريب حر لا يؤثر على نجومك" onBack={() => router.replace('/map')} backIcon="🏠" backLabel="العودة للخريطة" />}
+      footer={<Button title="مسألة جديدة" icon="🎲" onPress={() => start(randomFor(level))} />}
+    >
+      <View style={styles.stats}>
+        <Text style={styles.stat}>⚡ {student.xp} XP</Text>
+        <Text style={styles.stat}>{student.badges.includes(BADGE) ? '🏅 حصلت على الوسام الذهبي' : `🏅 الوسام الذهبي عند 100 XP`}</Text>
       </View>
-    </SpaceBackground>
+      {toast ? (
+        <View style={{ marginBottom: 10 }}>
+          <Feedback message={toast} tone="success" />
+        </View>
+      ) : null}
+      <Text style={styles.section}>اختر مسألتك</Text>
+      <View style={styles.grid}>
+        {items.map((it, i) => (
+          <Pressable
+            key={`${it.kind}-${label(it)}`}
+            onPress={() => start(it)}
+            style={({ pressed }) => [styles.item, pressed && { transform: [{ scale: 0.97 }] }]}
+            accessibilityRole="button"
+            accessibilityLabel={`مسألة ${label(it)}`}
+          >
+            <Text style={styles.itemKind}>
+              {it.kind === 'cards' ? 'بطاقات المستطيل' : it.kind === 'area' ? 'نموذج المستطيل' : 'القسمة المطوّلة'}
+            </Text>
+            <Text style={styles.itemProblem}>{label(it)}</Text>
+            <Text style={[styles.diff, { color: i < 2 ? colors.mint : i < 4 ? colors.sun : colors.peach }]}>
+              {DIFF[Math.min(i, DIFF.length - 1)]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    gap: 12,
-  },
-  title: {
+  stats: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 12 },
+  stat: {
+    fontFamily: fonts.bold,
     color: colors.white,
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontSize: 14,
+    backgroundColor: colors.glass,
+    borderRadius: radii.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    overflow: 'hidden',
   },
-  sub: { color: colors.muted, textAlign: 'center', lineHeight: 22 },
-  problem: {
-    color: colors.cyan,
-    fontSize: 28,
-    fontWeight: '900',
-    textAlign: 'center',
+  section: { fontFamily: fonts.black, color: colors.white, fontSize: 18, textAlign: 'right', marginBottom: 8 },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10 },
+  item: {
+    width: '48%',
+    flexGrow: 1,
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: 14,
+    alignItems: 'center',
+    borderBottomWidth: 5,
+    borderBottomColor: colors.paperLine,
   },
-  row: { gap: 8, alignItems: 'center' },
-  hint: { color: colors.gold, textAlign: 'center' },
+  itemKind: { fontFamily: fonts.bold, color: colors.inkSoft, fontSize: 12 },
+  itemProblem: { fontFamily: fonts.black, color: colors.ink, fontSize: 24, lineHeight: 36 },
+  diff: { fontFamily: fonts.black, fontSize: 13 },
 });

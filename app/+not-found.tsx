@@ -1,30 +1,18 @@
-import { Link, Stack } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Text } from 'react-native';
+import { Button } from '@/src/components/ui/Button';
+import { Screen } from '@/src/components/ui/Screen';
 import { colors } from '@/src/theme/colors';
+import { fonts } from '@/src/theme/typography';
 
-export default function NotFoundScreen() {
+export default function NotFound() {
+  const router = useRouter();
   return (
-    <>
-      <Stack.Screen options={{ title: 'غير موجود' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>الشاشة غير موجودة</Text>
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>العودة للبداية</Text>
-        </Link>
-      </View>
-    </>
+    <Screen center>
+      <Text style={{ fontFamily: fonts.black, color: colors.white, fontSize: 22, textAlign: 'center', marginBottom: 16 }}>
+        يبدو أننا ضللنا الطريق في الفضاء 🛸
+      </Text>
+      <Button title="العودة للبداية" icon="🏠" onPress={() => router.replace('/')} />
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.spaceDeep,
-    padding: 20,
-  },
-  title: { color: colors.white, fontSize: 18, fontWeight: '800' },
-  link: { marginTop: 16 },
-  linkText: { color: colors.cyan, fontSize: 16 },
-});

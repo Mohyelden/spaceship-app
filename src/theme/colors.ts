@@ -1,62 +1,72 @@
-/** Handcrafted "night workshop" palette — ink, copper, parchment (not neon AI) */
+/**
+ * Kid-friendly space palette: deep friendly night sky + bright, high-contrast
+ * play colors. Game boards sit on light "paper" cards for easy reading.
+ */
 export const colors = {
-  ink: '#12182A',
-  inkSoft: '#1C2438',
-  night: '#0E1424',
-  horizon: '#2A3348',
-  copper: '#C4843A',
-  copperBright: '#E8A85C',
-  copperDim: '#8A5A28',
-  parchment: '#F3E6D0',
-  parchmentDeep: '#E5D2B3',
-  chalk: '#FFF8EC',
-  mist: '#A9B0C3',
-  steel: '#6E7890',
-  success: '#2F7D4A',
-  successSoft: '#D7EBDD',
-  danger: '#A63D3D',
-  dangerSoft: '#F0D6D6',
-  warn: '#B7791F',
-  warnSoft: '#F5E6C8',
-  lock: '#3A4258',
-  open: '#3D6B4F',
-  white: '#FFFFFF',
+  // Sky
+  sky0: '#0F0B2E',
+  sky1: '#1D1556',
+  sky2: '#2E2284',
+  skyGlow: '#5B4BD6',
+
+  // Surfaces
+  paper: '#FFFFFF',
+  paperSoft: '#F5F3FF',
+  paperLine: '#E4E0FA',
+  glass: 'rgba(255,255,255,0.10)',
+  glassLine: 'rgba(255,255,255,0.18)',
+
+  // Text
+  ink: '#1E1A4D',
+  inkSoft: '#5D5893',
+  inkMuted: '#8F8AB8',
+  onDark: '#FFFFFF',
+  onDarkSoft: '#C9C3F5',
+
+  // Play colors
+  sun: '#FFC83D',
+  sunDeep: '#F0A500',
+  sunSoft: '#FFF4D1',
+  mint: '#22C55E',
+  mintDeep: '#15803D',
+  mintSoft: '#DCFCE7',
+  coral: '#F25F5C',
+  coralSoft: '#FFE3E2',
+  sea: '#38BDF8',
+  seaDeep: '#0284C7',
+  seaSoft: '#E0F4FE',
+  grape: '#8B5CF6',
+  grapeDeep: '#6D28D9',
+  grapeSoft: '#EDE6FF',
+  peach: '#FB923C',
+  pink: '#EC4899',
+
+  locked: '#6B6894',
   black: '#000000',
-  overlay: 'rgba(14, 20, 36, 0.72)',
-  // legacy aliases used across screens
-  spaceDeep: '#0E1424',
-  spaceMid: '#1C2438',
-  spaceLight: '#2A3348',
-  nebula: '#C4843A',
-  cyan: '#E8A85C',
-  gold: '#E8A85C',
-  green: '#2F7D4A',
-  greenDim: '#1F4F32',
-  red: '#A63D3D',
-  orange: '#C4843A',
-  yellow: '#E8A85C',
-  softWhite: '#FFF8EC',
-  muted: '#A9B0C3',
-  card: '#1C2438',
-  cardBorder: '#3A4258',
-  slot: '#161D2E',
-  slotActive: '#2A3348',
-  screenOff: '#161D2E',
-  screenOn: '#2F7D4A',
-  screenPartial: '#C4843A',
+  white: '#FFFFFF',
+  scrim: 'rgba(10, 7, 35, 0.72)',
 };
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
+/** Alternating colors used to paint "groups" on rulers (5s, 23s, ...) */
+export const groupColors = ['#38BDF8', '#FB923C', '#8B5CF6', '#22C55E', '#EC4899', '#FFC83D'];
 
 export const radii = {
-  sm: 8,
-  md: 14,
+  sm: 10,
+  md: 16,
   lg: 22,
-  xl: 32,
+  xl: 30,
+  pill: 999,
 };
+
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+};
+
+/** Content max width so tablets / desktop browsers don't stretch the UI */
+export const MAX_WIDTH = 560;
+export const MAX_WIDTH_WIDE = 980;

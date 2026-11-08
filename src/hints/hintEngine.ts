@@ -1,86 +1,52 @@
-import { HINT_MODE, type HintMode } from '@/src/config/env';
+import type { HintMode } from '@/src/config/env';
 
-export type HintTier = 0 | 1 | 2 | 3;
+/**
+ * Hint rules from the design document (per step):
+ *  error 1            -> "حاول مرة أخرى ❌"
+ *  error 2 (in a row) -> hint 1   (auto: shown at once | on demand: 💡 button unlocks)
+ *  error 3 (in a row) -> hint 2   (auto: shown at once | on demand: available on 💡)
+ *  error 4 (in a row) -> the game solves it and asks for a new adventure
+ * A correct answer resets the counter (new step = fresh start).
+ */
+export type HintLevel = 0 | 1 | 2;
 
-export type HintState = {
-  consecutiveErrors: number;
-  tier: HintTier;
-  helpUnlocked: boolean;
-  showSolution: boolean;
+export type StepHints = {
+  errors: number;
+  /** highest hint level the child is allowed to see now */
+  available: HintLevel;
+  /** hint level currently on screen */
+  shown: HintLevel;
+  solved: boolean;
 };
 
-export function createHintState(): HintState {
-  return {
-    consecutiveErrors: 0,
-    tier: 0,
-    helpUnlocked: false,
-    showSolution: false,
-  };
+export const SOLVE_AFTER_ERRORS = 4;
+
+export const freshHints = (): StepHints => ({ errors: 0, available: 0, shown: 0, solved: false });
+
+export function registerWrong(s: StepHints, mode: HintMode): StepHints {
+  const errors = s.errors + 1;
+  const available: HintLevel = errors >= 3 ? 2 : errors >= 2 ? 1 : 0;
+  const solved = errors >= SOLVE_AFTER_ERRORS;
+  // In auto mode the hint is shown immediately. In on-demand mode the hint already
+  // on screen stays; the next level waits for a press on 💡.
+  const shown: HintLevel = mode === 'auto' ? available : s.shown;
+  return { errors, available, shown, solved };
 }
 
-export function onCorrect(state: HintState): HintState {
-  return {
-    ...state,
-    consecutiveErrors: 0,
-    tier: 0,
-    helpUnlocked: false,
-    showSolution: false,
-  };
+/** on-demand: child pressed 💡 → reveal the next allowed hint level */
+export function pressHelp(s: StepHints): StepHints {
+  if (s.available === 0) return s;
+  const next = Math.min(s.available, Math.max(s.shown + 1, 1)) as HintLevel;
+  return { ...s, shown: next };
 }
 
-export function onWrong(
-  state: HintState,
-  mode: HintMode = HINT_MODE
-): HintState {
-  const consecutiveErrors = state.consecutiveErrors + 1;
+export const helpEnabled = (s: StepHints) => s.available > 0 && s.shown < s.available;
 
-  if (consecutiveErrors === 1) {
-    return { ...state, consecutiveErrors, tier: 0 };
-  }
-
-  if (consecutiveErrors === 2) {
-    if (mode === 'auto') {
-      return {
-        ...state,
-        consecutiveErrors,
-        tier: 1,
-        helpUnlocked: true,
-      };
-    }
-    return {
-      ...state,
-      consecutiveErrors,
-      tier: 0,
-      helpUnlocked: true,
-    };
-  }
-
-  if (consecutiveErrors === 3) {
-    return {
-      ...state,
-      consecutiveErrors,
-      tier: Math.max(state.tier, 2) as HintTier,
-      helpUnlocked: true,
-    };
-  }
-
-  return {
-    ...state,
-    consecutiveErrors,
-    tier: 3,
-    helpUnlocked: true,
-    showSolution: true,
-  };
-}
-
-/** User pressed help button (on_demand only) */
-export function requestHelp(state: HintState): HintState {
-  if (!state.helpUnlocked) return state;
-  if (state.tier === 0) return { ...state, tier: 1 };
-  if (state.tier === 1) return { ...state, tier: 2 };
-  return { ...state, tier: 3, showSolution: true };
-}
-
-export function resetStepHints(): HintState {
-  return createHintState();
+export function feedbackFor(s: StepHints, mode: HintMode): string {
+  if (s.solved) return 'لا بأس يا بطل! شاهد الحل جيدًا ثم كرر المغامرة بمسألة جديدة 💪';
+  if (s.errors === 1) return 'حاول مرة أخرى ❌';
+  if (mode === 'on_demand' && s.shown < s.available) return 'يمكنك الآن الضغط على زر المساعدة 💡';
+  if (s.shown === 1) return 'انظر إلى التلميح 👇 ثم حاول';
+  if (s.shown === 2) return 'تلميح أقوى 👇 انظر جيدًا إلى الألوان';
+  return 'حاول مرة أخرى ❌';
 }

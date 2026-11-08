@@ -1,25 +1,23 @@
 import { useRouter } from 'expo-router';
-import { MissionVideoPlayer } from '@/src/components/MissionVideoPlayer';
-import { useRequireSplash } from '@/src/components/SplashGate';
-import { HINT_MODE } from '@/src/config/env';
-import { useGameStore } from '@/src/store/gameStore';
+import { VideoScreen } from '@/src/components/VideoScreen';
+import { useRequireLogin } from '@/src/components/useGuard';
+import { helpTip } from '@/src/data/videos';
+import { useGameStore, useHintMode, useStudent } from '@/src/store/gameStore';
 
-export default function IntroVideoScreen() {
-  useRequireSplash();
+/** 1.3 Story video → map. Skip locked on the student's first login. */
+export default function IntroVideo() {
+  const ok = useRequireLogin();
   const router = useRouter();
-  const hasSeen = useGameStore((s) => s.hasSeenVideo);
+  const student = useStudent();
+  const mode = useHintMode();
   const markVideoSeen = useGameStore((s) => s.markVideoSeen);
-  const canSkip = hasSeen('intro');
+  if (!ok || !student) return null;
 
   return (
-    <MissionVideoPlayer
+    <VideoScreen
       videoId="intro"
-      canSkip={canSkip}
-      hintAboutHelp={
-        HINT_MODE === 'on_demand'
-          ? 'في اللعب: زر المساعدة بعد خطأين متتاليين'
-          : 'في اللعب: التلميحات تظهر تلقائيًا بعد خطأين'
-      }
+      canSkip={!!student.videosSeen.intro}
+      endTip={helpTip(mode)}
       onFinished={async () => {
         await markVideoSeen('intro');
         router.replace('/map');

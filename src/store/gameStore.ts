@@ -1,116 +1,165 @@
 import { create } from 'zustand';
+import type { HintMode } from '@/src/config/env';
 import {
-  defaultProgress,
-  loadProgress,
-  saveProgress,
+  defaultSave,
+  loadSave,
+  newStudent,
+  writeSave,
   type LevelId,
-  type ProgressState,
+  type SaveData,
+  type StatKey,
+  type Stats,
+  type StudentProgress,
+  type VideoId,
 } from '@/src/storage/progress';
 
-type GameStore = ProgressState & {
+type GameStore = {
   hydrated: boolean;
+  save: SaveData;
+  /** Code of the student playing right now (null = logged out) */
+  code: string | null;
+
   hydrate: () => Promise<void>;
-  login: (code: string) => Promise<void>;
-  markVideoSeen: (videoId: string) => Promise<void>;
-  hasSeenVideo: (videoId: string) => boolean;
+  login: (code: string) => Promise<{ firstTime: boolean }>;
+  logout: () => void;
+  setHintMode: (mode: HintMode) => Promise<void>;
+  markVideoSeen: (id: VideoId) => Promise<void>;
   completeLevel: (level: LevelId) => Promise<void>;
   addXp: (amount: number, badge?: string) => Promise<void>;
-  resetProgress: () => Promise<void>;
-  progressFraction: () => number;
+  track: (key: StatKey, field: keyof Stats, by?: number) => void;
+  resetStudent: (code: string) => Promise<void>;
+  deleteStudent: (code: string) => Promise<void>;
 };
 
-async function persist(get: () => GameStore) {
-  const {
-    studentCode,
-    stars,
-    unlocked,
-    completed,
-    videosSeen,
-    xp,
-    badges,
-  } = get();
-  await saveProgress({
-    studentCode,
-    stars,
-    unlocked,
-    completed,
-    videosSeen,
-    xp,
-    badges,
-  });
+export const normalizeCode = (raw: string) => raw.trim().toUpperCase().replace(/\s+/g, '');
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+export const useGameStore = create<GameStore>((set, get) => {
+  const persistNow = async () => writeSave(get().save);
+  const persistSoon = () => {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      writeSave(get().save);
+    }, 400);
+  };
+
+  const updateStudent = (fn: (s: StudentProgress) => StudentProgress) => {
+    const { code, save } = get();
+    if (!code || !save.students[code]) return;
+    set({
+      save: { ...save, students: { ...save.students, [code]: fn(save.students[code]) } },
+    });
+  };
+
+  return {
+    hydrated: false,
+    save: defaultSave(),
+    code: null,
+
+    hydrate: async () => {
+      const save = await loadSave();
+      set({ save, hydrated: true });
+    },
+
+    login: async (raw) => {
+      const code = normalizeCode(raw);
+      const { save } = get();
+      const existing = save.students[code];
+      const student = existing ?? newStudent(code);
+      const updated: StudentProgress = {
+        ...student,
+        logins: student.logins + 1,
+        lastLoginAt: Date.now(),
+      };
+      set({
+        code,
+        save: {
+          ...save,
+          lastCode: code,
+          students: { ...save.students, [code]: updated },
+        },
+      });
+      await persistNow();
+      return { firstTime: !existing };
+    },
+
+    logout: () => set({ code: null }),
+
+    setHintMode: async (mode) => {
+      set({ save: { ...get().save, hintMode: mode } });
+      await persistNow();
+    },
+
+    markVideoSeen: async (id) => {
+      updateStudent((s) => ({ ...s, videosSeen: { ...s.videosSeen, [id]: true } }));
+      await persistNow();
+    },
+
+    completeLevel: async (level) => {
+      updateStudent((s) =>
+        s.completed[level] ? s : { ...s, completed: { ...s.completed, [level]: true }, xp: s.xp + 50 }
+      );
+      await persistNow();
+    },
+
+    addXp: async (amount, badge) => {
+      updateStudent((s) => ({
+        ...s,
+        xp: s.xp + amount,
+        badges: badge && !s.badges.includes(badge) ? [...s.badges, badge] : s.badges,
+      }));
+      persistSoon();
+    },
+
+    track: (key, field, by = 1) => {
+      updateStudent((s) => ({
+        ...s,
+        stats: { ...s.stats, [key]: { ...s.stats[key], [field]: s.stats[key][field] + by } },
+      }));
+      persistSoon();
+    },
+
+    resetStudent: async (code) => {
+      const { save } = get();
+      if (!save.students[code]) return;
+      const fresh = { ...newStudent(code), logins: save.students[code].logins };
+      set({ save: { ...save, students: { ...save.students, [code]: fresh } } });
+      await persistNow();
+    },
+
+    deleteStudent: async (code) => {
+      const { save } = get();
+      const students = { ...save.students };
+      delete students[code];
+      set({
+        save: { ...save, students, lastCode: save.lastCode === code ? null : save.lastCode },
+        code: get().code === code ? null : get().code,
+      });
+      await persistNow();
+    },
+  };
+});
+
+/* ---------- selectors ---------- */
+
+export function useStudent(): StudentProgress | null {
+  return useGameStore((s) => (s.code ? s.save.students[s.code] ?? null : null));
 }
 
-export const useGameStore = create<GameStore>((set, get) => ({
-  ...defaultProgress(),
-  hydrated: false,
+export function useHintMode(): HintMode {
+  return useGameStore((s) => s.save.hintMode);
+}
 
-  hydrate: async () => {
-    const data = await loadProgress();
-    set({ ...data, hydrated: true });
-  },
+export function starsOf(st: StudentProgress | null): number {
+  if (!st) return 0;
+  return (st.completed.prep ? 1 : 0) + (st.completed.level1 ? 1 : 0) + (st.completed.level2 ? 1 : 0);
+}
 
-  login: async (code: string) => {
-    set({ studentCode: code.trim() });
-    await persist(get);
-  },
-
-  markVideoSeen: async (videoId: string) => {
-    const videosSeen = { ...get().videosSeen, [videoId]: true };
-    set({ videosSeen });
-    await persist(get);
-  },
-
-  hasSeenVideo: (videoId: string) => Boolean(get().videosSeen[videoId]),
-
-  completeLevel: async (level: LevelId) => {
-    const { completed, unlocked, stars } = get();
-    if (completed[level]) {
-      await persist(get);
-      return;
-    }
-
-    const nextCompleted = { ...completed, [level]: true };
-    const nextUnlocked = { ...unlocked };
-    let nextStars = stars;
-
-    if (level === 'prep') {
-      nextUnlocked.level1 = true;
-      nextStars = Math.max(stars, 1);
-    } else if (level === 'level1') {
-      nextUnlocked.level2 = true;
-      nextStars = Math.max(stars, 2);
-    } else if (level === 'level2') {
-      nextStars = Math.max(stars, 3);
-    }
-
-    set({
-      completed: nextCompleted,
-      unlocked: nextUnlocked,
-      stars: nextStars,
-    });
-    await persist(get);
-  },
-
-  addXp: async (amount: number, badge?: string) => {
-    const badges = badge && !get().badges.includes(badge)
-      ? [...get().badges, badge]
-      : get().badges;
-    set({ xp: get().xp + amount, badges });
-    await persist(get);
-  },
-
-  resetProgress: async () => {
-    const code = get().studentCode;
-    set({ ...defaultProgress(), studentCode: code, hydrated: true });
-    await persist(get);
-  },
-
-  progressFraction: () => {
-    const { completed } = get();
-    let n = 0;
-    if (completed.prep) n += 1;
-    if (completed.level1) n += 1;
-    if (completed.level2) n += 1;
-    return n / 3;
-  },
-}));
+export function isUnlocked(st: StudentProgress | null, level: LevelId): boolean {
+  if (!st) return level === 'prep';
+  if (level === 'prep') return true;
+  if (level === 'level1') return st.completed.prep;
+  return st.completed.level1;
+}

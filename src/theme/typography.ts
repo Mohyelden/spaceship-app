@@ -1,45 +1,18 @@
 import { TextStyle } from 'react-native';
 
 export const fonts = {
-  display: 'Amiri_700Bold',
-  displayRegular: 'Amiri_400Regular',
-  body: 'Cairo_500Medium',
-  bodyBold: 'Cairo_700Bold',
-  bodyExtra: 'Cairo_800ExtraBold',
-  bodyLight: 'Cairo_400Regular',
+  regular: 'Cairo_500Medium',
+  bold: 'Cairo_700Bold',
+  black: 'Cairo_800ExtraBold',
+  light: 'Cairo_400Regular',
 };
 
-export const type = {
-  hero: {
-    fontFamily: fonts.display,
-    fontSize: 44,
-    lineHeight: 56,
-    textAlign: 'center',
-  } satisfies TextStyle,
-  title: {
-    fontFamily: fonts.bodyExtra,
-    fontSize: 26,
-    lineHeight: 36,
-    textAlign: 'center',
-  } satisfies TextStyle,
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 24,
-    textAlign: 'center',
-  } satisfies TextStyle,
-  body: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 24,
-  } satisfies TextStyle,
-  button: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-  } satisfies TextStyle,
-  caption: {
-    fontFamily: fonts.bodyLight,
-    fontSize: 12,
-    lineHeight: 18,
-  } satisfies TextStyle,
+export const text = {
+  hero: { fontFamily: fonts.black, fontSize: 40, lineHeight: 58, textAlign: 'center' } satisfies TextStyle,
+  title: { fontFamily: fonts.black, fontSize: 24, lineHeight: 38, textAlign: 'center' } satisfies TextStyle,
+  heading: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 30, textAlign: 'center' } satisfies TextStyle,
+  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 26 } satisfies TextStyle,
+  small: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 } satisfies TextStyle,
+  button: { fontFamily: fonts.black, fontSize: 18, lineHeight: 28 } satisfies TextStyle,
+  number: { fontFamily: fonts.black, fontSize: 26, lineHeight: 36 } satisfies TextStyle,
 };
