@@ -13,7 +13,7 @@ import { Feedback, type Tone } from '../ui/Feedback';
 import { HelpButton } from '../ui/HelpButton';
 import { Screen } from '../ui/Screen';
 import { TopBar } from '../ui/TopBar';
-import { Bars, CurvedLink } from './Bars';
+import { ArrowHead, Bars, CurvedLink } from './Bars';
 import { NumberPad } from './NumberPad';
 
 type Pos = { c: number; s: CabinStep };
@@ -141,7 +141,7 @@ export function CabinGame({
   ) : null;
 
   const hintPanel =
-    pos && level > 0 && pos.s !== 'bringDown' ? <HintPanel problem={p} pos={pos} level={level} width={Math.min(width, wide ? 520 : 560) - 64} /> : null;
+    pos && level > 0 && pos.s !== 'bringDown' && pos.s !== 'start' ? <HintPanel problem={p} pos={pos} level={level} width={Math.min(width, wide ? 520 : 560) - 64} /> : null;
 
   const pad = pos ? <NumberPad value={input} onChange={setInput} onSubmit={submit} maxLength={4} /> : null;
 
@@ -274,7 +274,7 @@ function Monitors({ active, pos, problem, allGreen }: { active: number; pos: Pos
 
 /* ---------------- Long division board ---------------- */
 
-type CellStyle = 'normal' | 'active' | 'q' | 'glow' | 'used' | 'link' | 'arrow';
+type CellStyle = 'normal' | 'active' | 'q' | 'glow' | 'used' | 'link' | 'arrow' | 'arrowEnd';
 
 function LongDivision({
   problem: p,
@@ -363,14 +363,14 @@ function LongDivision({
         if (solved || passed(pos, k, 'bringDown')) put(rem, cy.bringDigit!, cy.bringIdx, 'used');
         else if (pos && pos.c === k && pos.s === 'bringDown') {
           if (hintLevel >= 1) {
-            rem.cells[cy.bringIdx] = hintLevel >= 2 ? '؟' : '⇣';
-            rem.styles[cy.bringIdx] = hintLevel >= 2 ? 'glow' : 'arrow';
+            rem.cells[cy.bringIdx] = hintLevel >= 2 ? '؟' : '';
+            rem.styles[cy.bringIdx] = hintLevel >= 2 ? 'glow' : 'arrowEnd';
             // dashed path from the digit down to its new place
-            prod.cells[cy.bringIdx] = '┊';
+            prod.cells[cy.bringIdx] = '';
             prod.styles[cy.bringIdx] = 'arrow';
             work.forEach((w) => {
               if (w.cells[cy.bringIdx!] === null) {
-                w.cells[cy.bringIdx!] = '┊';
+                w.cells[cy.bringIdx!] = '';
                 w.styles[cy.bringIdx!] = 'arrow';
               }
             });
@@ -420,7 +420,14 @@ function LongDivision({
       <View style={[styles.ldCells, opts.bracket && styles.ldBracket, r.line && styles.ldLine]}>
         {r.cells.map((ch, i) => (
           <View key={i} style={[styles.ldCell, { width: cw }, cellStyle(r.styles[i])]}>
-            <Text style={[styles.ldText, textStyle(r.styles[i])]}>{ch ?? ''}</Text>
+            {r.styles[i] === 'arrow' || r.styles[i] === 'arrowEnd' ? (
+              <View style={styles.dropArrow}>
+                <View style={styles.dropDash} />
+                {r.styles[i] === 'arrowEnd' ? <ArrowHead dir="down" color={colors.grape} size={10} /> : <View style={styles.dropDash} />}
+              </View>
+            ) : (
+              <Text style={[styles.ldText, textStyle(r.styles[i])]}>{ch ?? ''}</Text>
+            )}
           </View>
         ))}
       </View>
@@ -434,7 +441,7 @@ function LongDivision({
           <View style={{ width: 70 }} />
           <View style={[styles.readArrow, { width: cw * arrowSpan }]}>
             <View style={styles.readArrowLine} />
-            <Text style={styles.readArrowHead}>▶</Text>
+            <ArrowHead dir="right" color={colors.grape} size={12} />
           </View>
         </View>
       ) : null}
@@ -476,42 +483,26 @@ function textStyle(s: CellStyle | string) {
 function HintPanel({ problem: p, pos, level, width }: { problem: DivisionProblem; pos: Pos; level: number; width: number }) {
   const cy = p.cycles[pos.c];
   const d = p.divisor;
-  let title = '';
   let body: ReactNode = null;
 
   switch (pos.s) {
-    case 'start':
-      title = level >= 2 ? 'تابع الألوان على أرقام المقسوم من اليسار' : 'اقرأ المقسوم من اليسار إلى اليمين ▶';
-      body = (
-        <Text style={styles.hintText}>
-          {p.divisor >= 10
-            ? `المقسوم عليه (${d}) مكوّن من رقمين، لذلك نأخذ رقمين معًا من اليسار.`
-            : 'نبدأ دائمًا بأول رقم من جهة اليسار.'}
-        </Text>
-      );
-      break;
     case 'divide': {
       const W = cy.working;
-      if (level === 1) {
-        title = `مسطرة طولها ${W} مقسّمة إلى أجزاء كل منها ${d}`;
-        body = <Bars width={width} bars={[{ outline: W, tickEvery: d, arrow: true, label: String(W) }]} />;
-      } else {
-        title = `لوّنّا كل ${d} بلون: كم جزءًا ملوّنًا؟`;
-        const segs = Array.from({ length: cy.digit }, (_, i) => ({
-          len: d,
-          color: cy.digit === 1 ? colors.mint : groupColors[i % groupColors.length],
-        }));
-        body = <Bars width={width} bars={[{ outline: W, segs, tickEvery: d, arrow: true, label: String(W) }]} />;
-      }
+      const segs =
+        level >= 2
+          ? Array.from({ length: cy.digit }, (_, i) => ({
+              len: d,
+              color: cy.digit === 1 ? colors.mint : groupColors[i % groupColors.length],
+            }))
+          : undefined;
+      body = <Bars width={width} bars={[{ outline: W, segs, tickEvery: d, arrow: true, label: String(W) }]} />;
       break;
     }
     case 'multiply':
-      if (level === 1) {
-        title = `اضرب ناتج القسمة (${cy.digit}) في المقسوم عليه (${d})`;
-        body = <CurvedLink from={String(cy.digit)} to={String(d)} op="×" width={Math.min(width, 260)} />;
-      } else {
-        title = cy.digit === 1 ? `سهم واحد طوله ${d}` : `${cy.digit} أسهم متجاورة طول كل منها ${d} (جمع متكرر +)`;
-        body = (
+      body =
+        level === 1 ? (
+          <CurvedLink from={String(cy.digit)} to={String(d)} op="×" width={Math.min(width, 260)} />
+        ) : (
           <Bars
             width={width}
             bars={[
@@ -522,12 +513,10 @@ function HintPanel({ problem: p, pos, level, width }: { problem: DivisionProblem
             ]}
           />
         );
-      }
       break;
     case 'subtract':
-      if (level === 1) {
-        title = `سهمان: ${cy.working} و ${cy.product}`;
-        body = (
+      body =
+        level === 1 ? (
           <Bars
             width={width}
             signs="−"
@@ -536,10 +525,7 @@ function HintPanel({ problem: p, pos, level, width }: { problem: DivisionProblem
               { outline: cy.product, arrow: true, label: String(cy.product), segs: [{ len: cy.product, color: colors.seaSoft }] },
             ]}
           />
-        );
-      } else {
-        title = 'الجزء المشترك ملوّن بالأخضر، والباقي بلون آخر';
-        body = (
+        ) : (
           <Bars
             width={width}
             signs="−"
@@ -556,16 +542,14 @@ function HintPanel({ problem: p, pos, level, width }: { problem: DivisionProblem
             ]}
           />
         );
-      }
       break;
     default:
-      title = level >= 2 ? 'الرقم المضيء بالأخضر ينزل إلى الخانة الخضراء' : 'السهم المتقطع ⇣ يوضح الرقم الذي ينزل';
-      body = <Text style={styles.hintText}>ننزل الرقم التالي من المقسوم ونضعه بجوار الباقي ({cy.remainder}).</Text>;
+      return null;
   }
 
+  // pictures only (arrows / rulers / colors) – no sentences that give the answer away
   return (
     <View style={styles.hintCard}>
-      <Text style={styles.hintTitle}>💡 {title}</Text>
       <View style={{ alignItems: 'center' }}>{body}</View>
     </View>
   );
@@ -615,7 +599,8 @@ const styles = StyleSheet.create({
   ldSign: { fontFamily: fonts.black, fontSize: 26, color: colors.coral },
   readArrow: { flexDirection: 'row', alignItems: 'center', marginLeft: 8, height: 22 },
   readArrowLine: { flex: 1, height: 5, backgroundColor: colors.grape, borderRadius: 3 },
-  readArrowHead: { color: colors.grape, fontSize: 18, marginLeft: -4 },
+  dropArrow: { alignItems: 'center', justifyContent: 'center', height: '100%', gap: 3 },
+  dropDash: { width: 4, height: 10, borderRadius: 2, backgroundColor: colors.grape },
   qCard: { backgroundColor: colors.white, borderRadius: radii.lg, padding: 10, gap: 10, alignItems: 'center', flexDirection: 'row-reverse' },
   qText: { flex: 1, fontFamily: fonts.black, fontSize: 16, lineHeight: 26, color: colors.ink, textAlign: 'right', writingDirection: 'rtl' },
   answerBox: {
@@ -631,7 +616,5 @@ const styles = StyleSheet.create({
   },
   answerText: { fontFamily: fonts.black, fontSize: 30, color: colors.ink, lineHeight: 42 },
   hintCard: { backgroundColor: colors.sunSoft, borderRadius: radii.lg, borderWidth: 2, borderColor: colors.sun, padding: 12, gap: 8 },
-  hintTitle: { fontFamily: fonts.black, color: '#7A4B00', fontSize: 15, lineHeight: 24, textAlign: 'center' },
-  hintText: { fontFamily: fonts.bold, color: '#7A4B00', fontSize: 14, lineHeight: 22, textAlign: 'center' },
   fixed: { fontFamily: fonts.black, color: colors.mint, fontSize: 20, textAlign: 'center' },
 });

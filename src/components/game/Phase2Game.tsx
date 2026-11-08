@@ -13,7 +13,7 @@ import { Feedback, type Tone } from '../ui/Feedback';
 import { HelpButton } from '../ui/HelpButton';
 import { Screen } from '../ui/Screen';
 import { TopBar } from '../ui/TopBar';
-import { CurvedLink, CurvedPointer } from './Bars';
+import { ArrowHead, CurvedLink, CurvedPointer } from './Bars';
 import { DndProvider, Draggable, DropZone } from './DragDrop';
 
 const key = (row: Row, col: Col) => `${row}-${col}`;
@@ -178,7 +178,7 @@ export function Phase2Game({ problem, stat, title, subtitle, withChoice, onBack,
           <Feedback message={msg.text} tone={msg.tone} />
         </View>
 
-        {hint1 ? <RowHint slot={hint1} problem={problem} level={hints.shown} /> : null}
+        {hint1 ? <RowHint slot={hint1} problem={problem} /> : null}
 
         {solved ? <Button title="كرر المغامرة بمسألة جديدة" icon="🔁" onPress={onRetry} style={{ marginTop: 14 }} /> : null}
 
@@ -314,6 +314,7 @@ function AreaBoard({
                     glowSlot={glowSlot}
                     link={linkCells}
                     fixed={r === 'partial' && c === 0}
+                    pointNext={hintRow === 'partial'}
                   />
                 </View>
               ))}
@@ -333,6 +334,7 @@ function Cell({
   link,
   top,
   fixed,
+  pointNext,
 }: {
   id: string;
   value?: number;
@@ -341,12 +343,19 @@ function Cell({
   link: string[];
   top?: boolean;
   fixed?: boolean;
+  /** carry hint: arrow from this lit cell to the next column */
+  pointNext?: boolean;
 }) {
   const isActive = active && key(active.row, active.col) === id;
   const isLinked = link.includes(id);
   if (value !== undefined) {
     return (
       <View style={[styles.cell, top ? styles.cellTopFilled : styles.cellFilled, fixed && styles.cellFixed, isLinked && styles.cellLinked]}>
+        {isLinked && pointNext ? (
+          <View style={styles.carryArrow} pointerEvents="none">
+            <ArrowHead dir="right" color={colors.sunDeep} size={9} />
+          </View>
+        ) : null}
         <Text style={[styles.cellText, top && { color: colors.white }]} numberOfLines={1} adjustsFontSizeToFit>
           {value}
         </Text>
@@ -374,32 +383,22 @@ function Cell({
 
 /* ---------------- Hints under the board ---------------- */
 
-function RowHint({ slot, problem, level }: { slot: AreaSlot; problem: AreaProblem; level: number }) {
-  let title = '';
-  let body: ReactNode = null;
+function RowHint({ slot, problem }: { slot: AreaSlot; problem: AreaProblem }) {
+  // pictures only; the top-row and carry hints are drawn directly on the board
   const col = slot.col;
-  if (slot.row === 'top') {
-    title = `هذه خانة ${PLACE_NAMES[col]}`;
-    const example = col === 0 ? 'رقمًا بصفرين مثل 300' : col === 1 ? 'رقمًا بصفر واحد مثل 30' : 'رقمًا من خانة واحدة مثل 3';
-    body = <Text style={styles.hintBody}>السهم الأصفر الملتوي يشير إلى خانة {PLACE_NAMES[col]}، وهي تحتاج {example}.</Text>;
-  } else if (slot.row === 'partial') {
-    title = 'انظر إلى الخانة المضيئة بالأصفر';
-    body = <Text style={styles.hintBody}>الرقم المطلوب = نفس الرقم الباقي من الخانة السابقة (المضيء بالأصفر)</Text>;
-  } else if (slot.row === 'product') {
-    const part = problem.parts[col];
-    title = 'اضرب';
-    body = <CurvedLink from={String(problem.divisor)} to={String(part)} op="×" width={230} />;
-  } else {
+  let body: ReactNode = null;
+  if (slot.row === 'product') {
+    body = <CurvedLink from={String(problem.divisor)} to={String(problem.parts[col])} op="×" width={230} />;
+  } else if (slot.row === 'rest') {
     const part = problem.slots.find((s) => s.row === 'partial' && s.col === col)?.value ?? problem.dividend;
     const prod = problem.slots.find((s) => s.row === 'product' && s.col === col)?.value ?? 0;
-    title = 'اطرح';
     body = <CurvedLink from={String(part)} to={String(prod)} op="−" width={230} color={colors.coral} />;
+  } else {
+    return null;
   }
   return (
     <View style={styles.hintCard}>
-      <Text style={styles.hintTitle}>💡 {title}</Text>
       <View style={{ alignItems: 'center' }}>{body}</View>
-      {level >= 2 ? <Text style={styles.hintBody}>اختر الرقم المناسب لهذه الخانة من بين الأرقام المضيئة 🟩</Text> : null}
     </View>
   );
 }
@@ -529,6 +528,7 @@ const styles = StyleSheet.create({
   cellFilled: { backgroundColor: colors.white, borderWidth: 2, borderColor: '#C7E9FB' },
   cellTopFilled: { backgroundColor: colors.peach },
   cellFixed: { backgroundColor: colors.white, borderColor: colors.seaDeep },
+  carryArrow: { position: 'absolute', right: -14, top: -12, transform: [{ rotate: '-40deg' }], zIndex: 5 },
   cellLinked: { backgroundColor: colors.sun, borderColor: colors.sunDeep, borderWidth: 3 },
   cellText: { fontFamily: fonts.black, fontSize: 19, color: colors.ink },
   palette: { marginTop: 12, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: radii.lg, padding: 10, borderWidth: 1, borderColor: colors.glassLine },
@@ -551,8 +551,6 @@ const styles = StyleSheet.create({
   tileLifted: { shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
   tileText: { fontFamily: fonts.black, fontSize: 20, color: colors.ink },
   hintCard: { marginTop: 10, backgroundColor: colors.sunSoft, borderRadius: radii.lg, borderWidth: 2, borderColor: colors.sun, padding: 12, gap: 6 },
-  hintTitle: { fontFamily: fonts.black, color: '#7A4B00', fontSize: 15, textAlign: 'center' },
-  hintBody: { fontFamily: fonts.bold, color: '#7A4B00', fontSize: 14, lineHeight: 22, textAlign: 'center' },
   mcCard: { marginTop: 14, backgroundColor: colors.white, borderRadius: radii.xl, padding: 14, gap: 12 },
   mcTitle: { fontFamily: fonts.black, color: colors.ink, fontSize: 20, textAlign: 'center' },
   sumRow: { backgroundColor: colors.sunSoft, borderRadius: radii.md, padding: 8, borderWidth: 2, borderColor: colors.sun },

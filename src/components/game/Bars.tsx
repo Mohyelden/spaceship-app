@@ -154,8 +154,8 @@ export function CurvedLink({
         <SvgText fontFamily="Cairo_800ExtraBold" x={width - 35} y={74} fontSize={22} fontWeight="bold" fill={colors.ink} textAnchor="middle">
           {to}
         </SvgText>
-        <Path d={`M35 44 Q${width / 2} -6 ${width - 40} 40`} stroke={color} strokeWidth={4} fill="none" />
-        <Polygon points={`${width - 48},34 ${width - 34},44 ${width - 30},28`} fill={color} />
+        <Path d={`M35 44 Q${width / 2} -10 ${width - 35} 32`} stroke={color} strokeWidth={4} fill="none" strokeLinecap="round" />
+        <Polygon points={`${width - 44},28 ${width - 26},28 ${width - 35},44`} fill={color} />
         <Rect x={width / 2 - 18} y={6} width={36} height={30} rx={15} fill={color} />
         <SvgText fontFamily="Cairo_800ExtraBold" x={width / 2} y={28} fontSize={20} fontWeight="bold" fill="#FFFFFF" textAnchor="middle">
           {op}
@@ -173,5 +173,38 @@ export function CurvedPointer({ size = 30, color = colors.sunDeep }: { size?: nu
       <Path d="M8 34 L8 16 Q8 8 16 8 L20 8" stroke={color} strokeWidth={4.5} fill="none" strokeLinecap="round" />
       <Polygon points="19,1 29,8 19,15" fill={color} stroke={colors.ink} strokeWidth={1.5} />
     </Svg>
+  );
+}
+
+/** Solid triangle arrow head drawn with views (crisp on every phone, unlike text glyphs) */
+export function ArrowHead({ dir = 'right', color = colors.ink, size = 10 }: { dir?: 'right' | 'down' | 'left' | 'up'; color?: string; size?: number }) {
+  const t = 'transparent';
+  const base = { width: 0, height: 0 } as const;
+  if (dir === 'right' || dir === 'left')
+    return (
+      <View
+        style={{
+          ...base,
+          borderTopWidth: size,
+          borderBottomWidth: size,
+          borderTopColor: t,
+          borderBottomColor: t,
+          [dir === 'right' ? 'borderLeftWidth' : 'borderRightWidth']: size * 1.5,
+          [dir === 'right' ? 'borderLeftColor' : 'borderRightColor']: color,
+        }}
+      />
+    );
+  return (
+    <View
+      style={{
+        ...base,
+        borderLeftWidth: size,
+        borderRightWidth: size,
+        borderLeftColor: t,
+        borderRightColor: t,
+        [dir === 'down' ? 'borderTopWidth' : 'borderBottomWidth']: size * 1.5,
+        [dir === 'down' ? 'borderTopColor' : 'borderBottomColor']: color,
+      }}
+    />
   );
 }
