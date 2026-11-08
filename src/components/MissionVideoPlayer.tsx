@@ -1,12 +1,7 @@
-import { ResizeMode, Video, AVPlaybackStatus } from 'expo-av';
-import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useEvent, useEventListener } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/src/components/PrimaryButton';
 import { SafeScreen } from '@/src/components/SafeScreen';
 import { SpaceBackground } from '@/src/components/SpaceBackground';
@@ -28,40 +23,40 @@ export function MissionVideoPlayer({
   hintAboutHelp,
 }: Props) {
   const meta = VIDEO_SOURCES[videoId];
-  const ref = useRef<Video>(null);
-  const [playing, setPlaying] = useState(true);
-  const [muted, setMuted] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [ended, setEnded] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const player = useVideoPlayer(meta.uri, (p) => {
+    p.loop = false;
+    p.play();
+  });
+
+  const { isPlaying } = useEvent(player, 'playingChange', {
+    isPlaying: player.playing,
+  });
+
+  useEventListener(player, 'playToEnd', () => {
+    setEnded(true);
+  });
 
   useEffect(() => {
-    return () => {
-      ref.current?.unloadAsync();
-    };
-  }, []);
+    player.muted = muted;
+  }, [muted, player]);
 
-  async function togglePlay() {
-    if (!ref.current) return;
-    if (playing) {
-      await ref.current.pauseAsync();
-      setPlaying(false);
-    } else {
-      await ref.current.playAsync();
-      setPlaying(true);
-    }
-  }
+  useEffect(() => {
+    const id = setInterval(() => {
+      const duration = player.duration;
+      if (duration > 0) {
+        setProgress(player.currentTime / duration);
+      }
+    }, 400);
+    return () => clearInterval(id);
+  }, [player]);
 
-  function onStatus(status: AVPlaybackStatus) {
-    if (!status.isLoaded) return;
-    setReady(true);
-    if (status.durationMillis) {
-      setProgress(status.positionMillis / status.durationMillis);
-    }
-    if (status.didJustFinish) {
-      setEnded(true);
-      setPlaying(false);
-    }
+  function togglePlay() {
+    if (player.playing) player.pause();
+    else player.play();
   }
 
   return (
@@ -71,23 +66,11 @@ export function MissionVideoPlayer({
         <Text style={styles.title}>{meta.title}</Text>
 
         <View style={styles.playerShell}>
-          {!ready ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={colors.copperBright} size="large" />
-              <Text style={styles.loadingText}>تحميل الفيديو…</Text>
-            </View>
-          ) : null}
-
-          <Video
-            ref={ref}
+          <VideoView
             style={styles.video}
-            source={{ uri: meta.uri }}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay
-            isLooping={false}
-            isMuted={muted}
-            useNativeControls={false}
-            onPlaybackStatusUpdate={onStatus}
+            player={player}
+            contentFit="contain"
+            nativeControls={false}
           />
 
           {meta.isDemo ? (
@@ -100,7 +83,9 @@ export function MissionVideoPlayer({
         </View>
 
         <View style={styles.track}>
-          <View style={[styles.fill, { width: `${Math.min(progress, 1) * 100}%` }]} />
+          <View
+            style={[styles.fill, { width: `${Math.min(progress, 1) * 100}%` }]}
+          />
         </View>
 
         {hintAboutHelp ? (
@@ -109,12 +94,9 @@ export function MissionVideoPlayer({
 
         <View style={styles.row}>
           <Pressable style={styles.iconBtn} onPress={togglePlay}>
-            <Text style={styles.iconTxt}>{playing ? '❚❚' : '▶'}</Text>
+            <Text style={styles.iconTxt}>{isPlaying ? '❚❚' : '▶'}</Text>
           </Pressable>
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => setMuted((m) => !m)}
-          >
+          <Pressable style={styles.iconBtn} onPress={() => setMuted((m) => !m)}>
             <Text style={styles.iconTxt}>{muted ? '🔇' : '🔊'}</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
@@ -160,18 +142,6 @@ const styles = StyleSheet.create({
     borderColor: colors.copperDim,
   },
   video: { width: '100%', height: '100%', minHeight: 240 },
-  loading: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-    backgroundColor: '#000',
-  },
-  loadingText: {
-    color: colors.mist,
-    fontFamily: fonts.body,
-    marginTop: 10,
-  },
   demoBadge: {
     position: 'absolute',
     left: 8,
