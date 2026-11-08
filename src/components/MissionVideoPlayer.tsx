@@ -27,7 +27,7 @@ export function MissionVideoPlayer({
   const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const player = useVideoPlayer(meta.uri, (p) => {
+  const player = useVideoPlayer(meta.source, (p) => {
     p.loop = false;
     p.play();
   });

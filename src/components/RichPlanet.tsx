@@ -60,6 +60,7 @@ type Props = {
   label: string;
   subtitle: string;
   delay?: number;
+  compact?: boolean;
   onPress: () => void;
   onBank?: () => void;
 };
@@ -72,52 +73,60 @@ export function RichPlanet({
   label,
   subtitle,
   delay = 0,
+  compact = false,
   onPress,
   onBank,
 }: Props) {
   const float = useSharedValue(0);
-  const spin = useSharedValue(0);
   const palette = SKINS[skin];
-  const id = `p-${skin}-${size}`;
+  const id = `p-${skin}-${Math.round(size)}`;
 
   useEffect(() => {
     float.value = withDelay(
       delay,
       withRepeat(
-        withTiming(1, { duration: 2600 + delay, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, {
+          duration: 2400 + delay,
+          easing: Easing.inOut(Easing.sin),
+        }),
         -1,
         true
       )
     );
-    spin.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 12000, easing: Easing.linear }), -1, false)
-    );
-  }, [delay, float, spin]);
+  }, [delay, float]);
 
   const wrapStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: float.value * -10 }],
+    transform: [{ translateY: float.value * (compact ? -4 : -8) }],
   }));
 
   const r = size / 2;
+  const box = size + (compact ? 12 : 24);
 
   return (
-    <Animated.View style={[styles.wrap, wrapStyle, { width: size + 36 }]}>
+    <Animated.View
+      style={[styles.wrap, wrapStyle, { width: compact ? size + 28 : size + 36 }]}
+    >
       <Pressable disabled={!open} onPress={onPress} style={{ alignItems: 'center' }}>
-        <View style={{ width: size + 24, height: size + 24, alignItems: 'center', justifyContent: 'center' }}>
-          {/* glow */}
+        <View
+          style={{
+            width: box,
+            height: box,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <View
             style={[
               styles.glow,
               {
-                width: size * 1.35,
-                height: size * 1.35,
+                width: size * 1.3,
+                height: size * 1.3,
                 borderRadius: size,
-                backgroundColor: open ? `${palette.c1}55` : '#ffffff18',
+                backgroundColor: open ? `${palette.c1}55` : '#ffffff12',
               },
             ]}
           />
-          <Svg width={size + 24} height={size + 24}>
+          <Svg width={box} height={box}>
             <Defs>
               <RadialGradient id={`${id}-body`} cx="35%" cy="30%" r="70%">
                 <Stop offset="0%" stopColor={open ? palette.c0 : '#6B7280'} />
@@ -125,120 +134,86 @@ export function RichPlanet({
                 <Stop offset="100%" stopColor={open ? palette.c2 : '#1F2937'} />
               </RadialGradient>
               <LinearGradient id={`${id}-band`} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0%" stopColor={palette.band || palette.c0} stopOpacity="0.55" />
+                <Stop
+                  offset="0%"
+                  stopColor={palette.band || palette.c0}
+                  stopOpacity="0.55"
+                />
                 <Stop offset="100%" stopColor={palette.c2} stopOpacity="0.15" />
               </LinearGradient>
             </Defs>
 
             {palette.ring ? (
-              <G
-                transform={`rotate(-22 ${(size + 24) / 2} ${(size + 24) / 2})`}
-              >
+              <G transform={`rotate(-22 ${box / 2} ${box / 2})`}>
                 <Ellipse
-                  cx={(size + 24) / 2}
-                  cy={(size + 24) / 2 + 6}
-                  rx={r * 1.25}
-                  ry={r * 0.28}
+                  cx={box / 2}
+                  cy={box / 2 + 4}
+                  rx={r * 1.22}
+                  ry={r * 0.26}
                   stroke={open ? palette.ring : '#6B7280'}
-                  strokeWidth={5}
+                  strokeWidth={compact ? 3.5 : 5}
                   fill="none"
-                  opacity={0.95}
                 />
               </G>
             ) : null}
 
-            <Circle
-              cx={(size + 24) / 2}
-              cy={(size + 24) / 2}
-              r={r}
-              fill={`url(#${id}-body)`}
-            />
-
-            {/* atmosphere bands */}
+            <Circle cx={box / 2} cy={box / 2} r={r} fill={`url(#${id}-body)`} />
             <Ellipse
-              cx={(size + 24) / 2}
-              cy={(size + 24) / 2 - r * 0.15}
-              rx={r * 0.82}
-              ry={r * 0.18}
+              cx={box / 2}
+              cy={box / 2 - r * 0.15}
+              rx={r * 0.8}
+              ry={r * 0.16}
               fill={`url(#${id}-band)`}
             />
             <Ellipse
-              cx={(size + 24) / 2}
-              cy={(size + 24) / 2 + r * 0.22}
-              rx={r * 0.78}
+              cx={box / 2 - r * 0.28}
+              cy={box / 2 - r * 0.3}
+              rx={r * 0.24}
               ry={r * 0.14}
-              fill={open ? palette.c2 : '#111'}
-              opacity={0.28}
-            />
-
-            {/* craters / spots */}
-            <Circle
-              cx={(size + 24) / 2 - r * 0.28}
-              cy={(size + 24) / 2 + r * 0.1}
-              r={r * 0.12}
-              fill="#000"
-              opacity={0.18}
-            />
-            <Circle
-              cx={(size + 24) / 2 + r * 0.22}
-              cy={(size + 24) / 2 - r * 0.25}
-              r={r * 0.08}
-              fill="#fff"
-              opacity={0.22}
-            />
-
-            {/* shine */}
-            <Ellipse
-              cx={(size + 24) / 2 - r * 0.28}
-              cy={(size + 24) / 2 - r * 0.32}
-              rx={r * 0.28}
-              ry={r * 0.16}
               fill="#fff"
               opacity={0.28}
             />
-
-            {palette.ring ? (
-              <G
-                transform={`rotate(-22 ${(size + 24) / 2} ${(size + 24) / 2})`}
-              >
-                <Ellipse
-                  cx={(size + 24) / 2}
-                  cy={(size + 24) / 2 + 6}
-                  rx={r * 1.25}
-                  ry={r * 0.28}
-                  stroke={open ? palette.ring : '#6B7280'}
-                  strokeWidth={3}
-                  fill="none"
-                  opacity={0.55}
-                  strokeDasharray="2 6"
-                />
-              </G>
-            ) : null}
           </Svg>
 
           {!open ? (
-            <View style={styles.lockBadge}>
-              <Text style={styles.lockText}>مقفل</Text>
+            <View style={[styles.lockBadge, compact && styles.lockCompact]}>
+              <Text style={styles.lockIcon}>🔒</Text>
             </View>
           ) : done ? (
-            <View style={[styles.lockBadge, styles.doneBadge]}>
-              <Text style={styles.doneText}>★ تم</Text>
+            <View style={[styles.lockBadge, styles.doneBadge, compact && styles.lockCompact]}>
+              <Text style={styles.doneText}>★</Text>
             </View>
-          ) : null}
+          ) : (
+            <View style={[styles.lockBadge, styles.openBadge, compact && styles.lockCompact]}>
+              <Text style={styles.openText}>▶</Text>
+            </View>
+          )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.sub}>{subtitle}</Text>
-          {open ? (
-            <Text style={styles.cta}>{done ? 'ادخل مجددًا' : 'اضغط للدخول'}</Text>
+        <View style={[styles.card, compact && styles.cardCompact]}>
+          <Text style={[styles.label, compact && styles.labelCompact]} numberOfLines={1}>
+            {label}
+          </Text>
+          {!compact ? (
+            <Text style={styles.sub} numberOfLines={2}>
+              {subtitle}
+            </Text>
           ) : (
-            <Text style={styles.ctaMuted}>أكمل السابق أولًا</Text>
+            <Text style={styles.subCompact} numberOfLines={1}>
+              {subtitle}
+            </Text>
           )}
+          {!compact ? (
+            open ? (
+              <Text style={styles.cta}>{done ? 'ادخل مجددًا' : 'اضغط للدخول'}</Text>
+            ) : (
+              <Text style={styles.ctaMuted}>أكمل السابق أولًا</Text>
+            )
+          ) : null}
         </View>
       </Pressable>
 
-      {done && onBank ? (
+      {!compact && done && onBank ? (
         <Pressable onPress={onBank} style={styles.bank}>
           <Text style={styles.bankText}>بنك المسائل</Text>
         </Pressable>
@@ -252,60 +227,78 @@ const styles = StyleSheet.create({
   glow: { position: 'absolute' },
   lockBadge: {
     position: 'absolute',
-    bottom: 10,
-    backgroundColor: 'rgba(15,18,28,0.85)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    bottom: 6,
+    backgroundColor: 'rgba(15,18,28,0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#6B7280',
   },
-  lockText: { color: '#D1D5DB', fontFamily: fonts.bodyBold, fontSize: 11 },
-  doneBadge: { borderColor: '#F5C451', backgroundColor: 'rgba(80,50,10,0.9)' },
+  lockCompact: { bottom: 2, paddingHorizontal: 6, paddingVertical: 2 },
+  lockIcon: { fontSize: 11 },
+  doneBadge: { borderColor: '#F5C451', backgroundColor: 'rgba(80,50,10,0.92)' },
   doneText: { color: '#F5C451', fontFamily: fonts.bodyBold, fontSize: 11 },
+  openBadge: { borderColor: '#FFC56E', backgroundColor: 'rgba(60,40,10,0.9)' },
+  openText: { color: '#FFC56E', fontSize: 10, fontFamily: fonts.bodyBold },
   card: {
-    marginTop: 4,
-    backgroundColor: 'rgba(10,14,26,0.82)',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    marginTop: 2,
+    backgroundColor: 'rgba(10,14,26,0.88)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: 'rgba(255,200,120,0.28)',
-    minWidth: 124,
+    minWidth: 110,
+  },
+  cardCompact: {
+    minWidth: 0,
+    width: '100%',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 10,
   },
   label: {
     fontFamily: fonts.bodyExtra,
     color: '#FFF4DF',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
   },
+  labelCompact: { fontSize: 10 },
   sub: {
     fontFamily: fonts.body,
     color: '#B7C0D6',
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'center',
     marginTop: 2,
+  },
+  subCompact: {
+    fontFamily: fonts.body,
+    color: '#B7C0D6',
+    fontSize: 8,
+    textAlign: 'center',
+    marginTop: 1,
   },
   cta: {
     fontFamily: fonts.bodyBold,
     color: '#FFC56E',
-    fontSize: 11,
+    fontSize: 10,
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 3,
   },
   ctaMuted: {
     fontFamily: fonts.body,
     color: '#8B93A7',
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 3,
   },
   bank: {
-    marginTop: 8,
+    marginTop: 6,
     backgroundColor: '#FFC56E',
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  bankText: { fontFamily: fonts.bodyBold, color: '#1A1208', fontSize: 11 },
+  bankText: { fontFamily: fonts.bodyBold, color: '#1A1208', fontSize: 10 },
 });

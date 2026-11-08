@@ -5,17 +5,16 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   Easing,
-  FadeInDown,
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { RichPlanet, type PlanetSkin } from '@/src/components/RichPlanet';
 import { fonts } from '@/src/theme/typography';
 
@@ -30,134 +29,164 @@ export type PlanetLevel = {
   onBank?: () => void;
 };
 
-/** Vertical responsive path — no absolute overlap on phones */
-export function GalaxyMap({ levels }: { levels: PlanetLevel[] }) {
-  const { width } = useWindowDimensions();
-  const mapW = Math.min(width - 24, 420);
+type Props = {
+  levels: PlanetLevel[];
+  width: number;
+  height: number;
+};
+
+/** Single-screen galaxy path — 3 planets connected, no scroll */
+export function GalaxyMap({ levels, width, height }: Props) {
   const pulse = useSharedValue(0.5);
+  const mapW = width;
+  const mapH = Math.max(height, 280);
+  const planetSize = Math.min(78, mapW * 0.22, mapH * 0.18);
 
   useEffect(() => {
     pulse.value = withRepeat(
-      withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
   }, [pulse]);
 
-  const lineStyle = useAnimatedStyle(() => ({ opacity: 0.35 + pulse.value * 0.5 }));
+  // Zigzag nodes — all visible inside one frame
+  const nodes = [
+    { x: mapW * 0.28, y: mapH * 0.18 },
+    { x: mapW * 0.72, y: mapH * 0.48 },
+    { x: mapW * 0.30, y: mapH * 0.78 },
+  ];
+
+  const pathD = `M ${nodes[0].x} ${nodes[0].y}
+    C ${mapW * 0.55} ${mapH * 0.18}, ${mapW * 0.88} ${mapH * 0.32}, ${nodes[1].x} ${nodes[1].y}
+    S ${mapW * 0.12} ${mapH * 0.65}, ${nodes[2].x} ${nodes[2].y}`;
+
+  const trailStyle = useAnimatedStyle(() => ({
+    opacity: 0.4 + pulse.value * 0.55,
+  }));
 
   return (
-    <View style={[styles.wrap, { width: mapW }]}>
+    <Animated.View entering={FadeIn.duration(500)} style={{ width: mapW, height: mapH }}>
       <ImageBackground
         source={require('../../assets/images/galaxy-pixel.png')}
         style={styles.bg}
         imageStyle={styles.bgImage}
         resizeMode="cover"
       >
-        <View style={styles.inner}>
-          {levels.map((level, i) => {
-            const align = i % 2 === 0 ? 'flex-start' : 'flex-end';
-            return (
-              <View key={level.id} style={styles.step}>
-                {i > 0 ? (
-                  <Animated.View style={[styles.connector, lineStyle]}>
-                    <View style={styles.dash} />
-                    <Text style={styles.arrow}>↓</Text>
-                    <View style={styles.dash} />
-                  </Animated.View>
-                ) : null}
+        <View style={styles.dim} pointerEvents="none" />
 
-                <Animated.View
-                  entering={FadeInDown.delay(i * 160).duration(500)}
-                  style={[styles.row, { justifyContent: align }]}
-                >
-                  <View style={styles.planetBlock}>
-                    <RichPlanet
-                      skin={level.skin}
-                      size={Math.min(96, mapW * 0.28)}
-                      open={level.open}
-                      done={level.done}
-                      label={level.title}
-                      subtitle={level.subtitle}
-                      delay={i * 120}
-                      onPress={level.onPress}
-                      onBank={level.onBank}
-                    />
-                    {level.open ? (
-                      <Pressable
-                        onPress={level.onPress}
-                        style={[
-                          styles.enterBtn,
-                          level.done ? styles.enterDone : null,
-                        ]}
-                      >
-                        <Text style={styles.enterText}>
-                          {level.done ? 'دخول المستوى' : 'ابدأ المستوى'}
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </Animated.View>
-              </View>
-            );
-          })}
-        </View>
+        <Animated.View style={[StyleSheet.absoluteFill, trailStyle]} pointerEvents="none">
+          <Svg width={mapW} height={mapH}>
+            <Defs>
+              <LinearGradient id="trailGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#FFE08A" stopOpacity="0.95" />
+                <Stop offset="1" stopColor="#5B8DEF" stopOpacity="0.85" />
+              </LinearGradient>
+            </Defs>
+            <Path
+              d={pathD}
+              stroke="rgba(255,220,140,0.22)"
+              strokeWidth={14}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={pathD}
+              stroke="url(#trailGrad)"
+              strokeWidth={3.5}
+              fill="none"
+              strokeDasharray="8 12"
+              strokeLinecap="round"
+            />
+            {nodes.map((n, i) => (
+              <Circle
+                key={i}
+                cx={n.x}
+                cy={n.y}
+                r={planetSize * 0.72}
+                fill="none"
+                stroke={levels[i]?.open ? '#FFE08A' : '#6B7280'}
+                strokeOpacity={0.35}
+                strokeWidth={2}
+              />
+            ))}
+          </Svg>
+        </Animated.View>
+
+        {levels.map((level, i) => {
+          const n = nodes[i];
+          const cardW = Math.min(132, mapW * 0.38);
+          return (
+            <View
+              key={level.id}
+              style={[
+                styles.node,
+                {
+                  left: Math.max(4, Math.min(n.x - cardW / 2, mapW - cardW - 4)),
+                  top: Math.max(2, n.y - planetSize * 0.55),
+                  width: cardW,
+                },
+              ]}
+            >
+              <Pressable
+                disabled={!level.open}
+                onPress={level.onPress}
+                style={styles.press}
+              >
+                <RichPlanet
+                  skin={level.skin}
+                  size={planetSize}
+                  open={level.open}
+                  done={level.done}
+                  label={level.title}
+                  subtitle={level.subtitle}
+                  delay={i * 100}
+                  compact
+                  onPress={level.onPress}
+                />
+              </Pressable>
+              {level.done && level.onBank ? (
+                <Pressable onPress={level.onBank} style={styles.bankChip}>
+                  <Text style={styles.bankText}>بنك</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
       </ImageBackground>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignSelf: 'center' },
   bg: {
-    borderRadius: 24,
+    flex: 1,
+    borderRadius: 22,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,200,120,0.28)',
+    borderColor: 'rgba(255,200,120,0.3)',
   },
-  bgImage: { borderRadius: 24 },
-  inner: {
-    paddingVertical: 18,
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(6,10,20,0.22)',
-    gap: 4,
+  bgImage: { borderRadius: 22 },
+  dim: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(4,8,18,0.15)',
   },
-  step: { width: '100%' },
-  connector: {
+  node: {
+    position: 'absolute',
     alignItems: 'center',
-    paddingVertical: 4,
-    gap: 2,
+    zIndex: 5,
   },
-  dash: {
-    width: 3,
-    height: 10,
-    borderRadius: 2,
-    backgroundColor: '#FFE08A',
-  },
-  arrow: {
-    color: '#FFE08A',
-    fontSize: 14,
-    fontFamily: fonts.bodyBold,
-  },
-  row: {
-    width: '100%',
-    flexDirection: 'row',
-  },
-  planetBlock: {
-    alignItems: 'center',
-    maxWidth: '78%',
-  },
-  enterBtn: {
-    marginTop: 8,
+  press: { alignItems: 'center' },
+  bankChip: {
+    marginTop: 4,
     backgroundColor: '#FFC56E',
     borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
-  enterDone: { backgroundColor: '#3DDC97' },
-  enterText: {
+  bankText: {
     fontFamily: fonts.bodyBold,
     color: '#1A1208',
-    fontSize: 13,
+    fontSize: 10,
   },
 });
